@@ -5,15 +5,17 @@ from flowers import Bouquet, Flower
 
 
 class BaseSuitor(ABC):
-    def __init__(self, days: int, num_suitors: int, suitor_id: int):
+    def __init__(self, days: int, num_suitors: int, suitor_id: int, name: str):
         """
         :param days: number of days of courtship
         :param num_suitors: number of suitors, including yourself
-        :param suitor_id: unique id of your suitor in range(num_suitors)
+        :param suitor_id: unique id of your suitor for a particular game in range(num_suitors)
+        :param name: string name of your team
         """
         self.days = days
         self.num_suitors = num_suitors
         self.suitor_id = suitor_id
+        self.name = name
 
         # Record feedback.  BaseSuitor doesn\'t do anything with this information, but you should!
         self.feedback = []

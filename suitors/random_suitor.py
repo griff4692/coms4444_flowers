@@ -16,7 +16,7 @@ class RandomSuitor(BaseSuitor):
         :param num_suitors: number of suitors, including yourself
         :param suitor_id: unique id of your suitor in range(num_suitors)
         """
-        super().__init__(days, num_suitors, suitor_id)
+        super().__init__(days, num_suitors, suitor_id, name='rand')
 
     def _prepare_bouquet(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())

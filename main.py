@@ -35,6 +35,10 @@ class FlowerMarriageGame():
     def reset_game_state(self):
         # Instantiate suitors
         self.suitors = [RandomSuitor(args.d, args.p, i) for i in range(args.p)]
+        suitor_conformity = list(map(validate_suitor, self.suitors))
+        for suitor, suitor_status in zip(self.suitors, suitor_conformity):
+            if suitor_conformity == 0:
+                print(f'Suitor {suitor.suitor_id} provided invalid zero/one boundary bouquets.')
 
         # Instantiate arrays to keep track of bouquets provided at each round, as well as scores and ranks.
         self.bouquets = np.empty(shape=(args.d, args.p, args.p), dtype=Bouquet)
@@ -123,8 +127,12 @@ def aggregate_score(suitor: BaseSuitor, bouquet: Bouquet):
 
 
 def validate_suitor(suitor):
-    assert aggregate_score(suitor, suitor.zero_score_bouquet()) == 0
-    assert aggregate_score(suitor, suitor.one_score_bouquet()) == 1
+    try:
+        assert aggregate_score(suitor, suitor.zero_score_bouquet()) == 0
+        assert aggregate_score(suitor, suitor.one_score_bouquet()) == 1
+        return 1
+    except:
+        return 0
 
 
 if __name__ == '__main__':

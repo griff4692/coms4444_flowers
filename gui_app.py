@@ -1,3 +1,5 @@
+import logging
+
 import os
 from remi import App, gui
 
@@ -8,6 +10,7 @@ class FlowerApp(App):
     def __init__(self, *args):
         images_path = os.path.join(root_dir, 'images')
         super(FlowerApp, self).__init__(*args, static_file_path={'images': images_path})
+        self.logger = logging.getLogger(__name__)
 
     def compute_key(self, row, col):
         if col == 0 and row == 0:
@@ -174,7 +177,7 @@ class FlowerApp(App):
 
     def simulate_round(self, widget):
         if self.flower_game.is_over():
-            print('Already finished!')
+            self.logger.warning('Already finished!  Cannot simulate anymore round')
         else:
             self.flower_game.simulate_next_round()
             self.update()
@@ -220,7 +223,7 @@ class FlowerApp(App):
 
     def simulate_to_end(self, widget):
         if self.flower_game.is_over():
-            print('Already finished!')
+            self.logger.warning('Already finished!  Cannot simulate anymore round')
         else:
             self.flower_game.play()
             self.update()

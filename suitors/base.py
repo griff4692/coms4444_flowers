@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict
 
 from flowers import Bouquet, Flower
+from time_utils import break_after, prepare_empty_bouquets
 
 
 class BaseSuitor(ABC):
@@ -34,6 +35,13 @@ class BaseSuitor(ABC):
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
         pass
+
+    @break_after(1, fallback_func=prepare_empty_bouquets)
+    def prepare_bouquets_timed(self, flower_counts: Dict[Flower, int]):
+        """
+        Imposes 1 second time limit on self.prepare_bouqets.  Do not override this method
+        """
+        return self.prepare_bouquets(flower_counts)
 
     @abstractmethod
     def score_type(self, bouquet: Bouquet):
@@ -80,3 +88,17 @@ class BaseSuitor(ABC):
         :return: nothing
         """
         pass
+
+    @break_after(1, fallback_func=None)
+    def receive_feedback_timed(self, feedback):
+        """
+        Imposes 1 second time limit on self.receive_feedback.  Do not override this method
+        """
+        return self.receive_feedback_timed(feedback)
+
+    def get_num_suitors(self):
+        """
+        :return: the number of suitors in the simulation.  This is used elsewhere so only override this if you
+        change self.num_suitors
+        """
+        return self.num_suitors

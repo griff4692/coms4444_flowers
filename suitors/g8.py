@@ -4,7 +4,7 @@ from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
 
 
-class RandomSuitor(BaseSuitor):
+class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
         """
         :param days: number of days of courtship

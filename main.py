@@ -7,11 +7,11 @@ import pandas as pd
 from remi import start
 from scipy.stats import rankdata
 
-from flowers import Flower, FlowerColors, FlowerTypes, FlowerSizes, Bouquet
+from flowers import Bouquet, get_all_possible_flowers, sample_n_random_flowers, get_all_possible_bouquets
 from gui_app import FlowerApp
 from suitors.base import BaseSuitor
 from suitors.suitor_factory import suitor_by_name
-from utils import flatten_counter, sample_n_random_flowers
+from utils import flatten_counter
 
 
 class FlowerMarriageGame:
@@ -36,9 +36,8 @@ class FlowerMarriageGame:
         assert self.p >= 2 and self.p % 2 == 0
 
         self.gui = args.gui
-        self.possible_flowers = list(map(
-            lambda x: Flower(*x), list(itertools.product(*[list(FlowerSizes), list(FlowerColors), list(FlowerTypes)]))))
-        self.num_flowers_to_sample = 6 * (args.p - 1)
+        self.possible_flowers = get_all_possible_flowers()
+        self.num_flowers_to_sample = 6 * (self.p - 1)
         self.logger.info(
             f'Will sample {self.num_flowers_to_sample} out of {len(self.possible_flowers)} possible flowers.')
 
@@ -52,16 +51,16 @@ class FlowerMarriageGame:
 
     def reset_game_state(self):
         # Instantiate suitors
-        self.suitors = [suitor_by_name(self.suitor_names[i], args.d, args.p, i) for i in range(args.p)]
+        self.suitors = [suitor_by_name(self.suitor_names[i], self.d, self.p, i) for i in range(self.p)]
         suitor_conformity = list(map(validate_suitor, self.suitors))
         for suitor, suitor_status in zip(self.suitors, suitor_conformity):
             if suitor_conformity == 0:
                 self.logger.error(f'Suitor {suitor.suitor_id} provided invalid zero/one boundary bouquets.')
 
         # Instantiate arrays to keep track of bouquets provided at each round, as well as scores and ranks.
-        self.bouquets = np.empty(shape=(args.d, args.p, args.p), dtype=Bouquet)
-        self.scores = np.zeros(shape=(args.d, args.p, args.p), dtype=float)
-        self.ranks = np.zeros(shape=(args.d, args.p, args.p), dtype=int)
+        self.bouquets = np.empty(shape=(self.d, self.p, self.p), dtype=Bouquet)
+        self.scores = np.zeros(shape=(self.d, self.p, self.p), dtype=float)
+        self.ranks = np.zeros(shape=(self.d, self.p, self.p), dtype=int)
         self.next_round = 0
         self.marriages = None
         self.advantage = None
@@ -87,6 +86,7 @@ class FlowerMarriageGame:
     def simulate_round(self, curr_round):
         suitor_ids = [suitor.suitor_id for suitor in self.suitors]
         flowers_for_round = sample_n_random_flowers(self.possible_flowers, self.num_flowers_to_sample)
+        # bouquets = get_all_possible_bouquets(flowers_for_round)
         offers = list(itertools.chain(
             *map(lambda suitor: self.resolve_prepare_func(suitor)(flowers_for_round), self.suitors)))
         for (suitor_from, suitor_to, bouquet) in offers:

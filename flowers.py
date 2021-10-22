@@ -1,4 +1,4 @@
-from collections import Counter, OrderedDict
+from collections import Counter, OrderedDict, defaultdict
 from enum import Enum
 import itertools
 import random
@@ -59,6 +59,14 @@ class Bouquet:
         """
         # Sort by flower names so that the equivalent Bouquets have equivalent string representations
         self.arrangement = OrderedDict(sorted(arrangement.items(), key=lambda x: str(x[0])))
+        self.sizes, self.colors, self.types = defaultdict(int), defaultdict(int), defaultdict(int)
+        for flower, count in arrangement.items():
+            self.sizes[flower.size] += 1
+            self.colors[flower.color] += 1
+            self.types[flower.type] += 1
+        self.types = dict(self.types)
+        self.colors = dict(self.colors)
+        self.sizes = dict(self.sizes)
 
     def __len__(self):
         return len(self.arrangement)

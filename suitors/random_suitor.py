@@ -4,7 +4,7 @@ from typing import Dict
 import numpy as np
 
 from constants import MAX_BOUQUET_SIZE
-from flowers import get_random_flower, Bouquet, Flower
+from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from utils import flatten_counter
 from suitors.base import BaseSuitor
 
@@ -33,46 +33,76 @@ class RandomSuitor(BaseSuitor):
         return self.suitor_id, recipient_id, chosen_bouquet
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
+        """
+        :param flower_counts: flowers and associated counts for for available flowers
+        :return: list of tuples of (self.suitor_id, recipient_id, chosen_bouquet)
+        the list should be of length len(self.num_suitors) - 1 because you should give a bouquet to everyone
+         but yourself
+
+        To get the list of suitor ids not including yourself, use the following snippet:
+
+        all_ids = np.arange(self.num_suitors)
+        recipient_ids = all_ids[all_ids != self.suitor_id]
+        """
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
         return list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
 
     def zero_score_bouquet(self):
-        return Bouquet({})
+        """
+        :return: a Bouquet for which your scoring function will return 0
+        """
+        min_flower = Flower(
+            size=FlowerSizes.Small,
+            color=FlowerColors.White,
+            type=FlowerTypes.Rose
+        )
+        return Bouquet({min_flower: 1})
 
     def one_score_bouquet(self):
-        rand_flower = get_random_flower()
-        return Bouquet({rand_flower: MAX_BOUQUET_SIZE})
-
-    def score_type(self, bouquet: Bouquet):
         """
-        :param bouquet: an arrangement of flowers
+        :return: a Bouquet for which your scoring function will return 1
+        """
+        max_flower = Flower(
+            size=FlowerSizes.Large,
+            color=FlowerColors.Blue,
+            type=FlowerTypes.Begonia
+        )
+        return Bouquet({max_flower: 1})
+
+    def score_types(self, types: Dict[FlowerTypes, int]):
+        """
+        :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        if len(bouquet) == 0:
-            return 0
-        if len(bouquet) == MAX_BOUQUET_SIZE:
-            return 1.0
-        return np.random.random() / 3.0
+        if len(types) == 0:
+            return 0.0
 
-    def score_color(self, bouquet: Bouquet):
+        avg_types = float(np.mean([x.value for x in flatten_counter(types)]))
+        return avg_types / (3 * (len(FlowerTypes) - 1))
+
+    def score_colors(self, colors: Dict[FlowerColors, int]):
         """
-        :param bouquet: an arrangement of flowers
+        :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        if len(bouquet) == 0 or len(bouquet) == MAX_BOUQUET_SIZE:
-            return 0
-        return np.random.random() / 3.0
+        if len(colors) == 0:
+            return 0.0
 
-    def score_size(self, bouquet: Bouquet):
+        avg_colors = float(np.mean([x.value for x in flatten_counter(colors)]))
+        return avg_colors / (3 * (len(FlowerColors) - 1))
+
+    def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
-        :param bouquet: an arrangement of flowers
+        :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
-        if len(bouquet) == 0 or len(bouquet) == MAX_BOUQUET_SIZE:
+        if len(sizes) == 0:
             return 0
-        return np.random.random() / 3.0
+
+        avg_sizes = float(np.mean([x.value for x in flatten_counter(sizes)]))
+        return avg_sizes / (3 * (len(FlowerSizes) - 1))
 
     def receive_feedback(self, feedback):
         """

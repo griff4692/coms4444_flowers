@@ -275,9 +275,11 @@ class FlowerApp(App):
                     style = {'background-color': 'rgb(225,225,225,0.5)', 'font-weight': 'light'}
                     self.grid.children[f'{i + 1}_{j + 1}'].set_style(style)
         for marriage_order, pair in enumerate(marriage_outputs['unions']):
-            opacity = (len(marriage_outputs['unions']) - marriage_order) / len(marriage_outputs['unions'])
-            style = {'background-color': f'rgb(255,0,0,{opacity})', 'font-weight': 'bold'}
             raw_score = marriage_outputs['scores'][pair['chooser']]
+            color_multiplier = 3.0
+            red = min(0 if raw_score < 0 else round(raw_score * 255 * color_multiplier), 255)
+            blue = min(0 if raw_score > 0 else round(-raw_score * 255 * color_multiplier), 255)
+            style = {'background-color': f'rgb({red},0,{blue}, 1)', 'font-weight': 'bold'}
             score = round(raw_score, 2)
             suitor_id = pair['suitor']
             chooser_id = pair['chooser']

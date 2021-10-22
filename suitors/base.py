@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict
 
-from flowers import Bouquet, Flower
+from flowers import Bouquet, Flower, FlowerColors, FlowerSizes, FlowerTypes
 from time_utils import break_after, prepare_empty_bouquets
 
 
@@ -24,7 +24,7 @@ class BaseSuitor(ABC):
     @abstractmethod
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
-        :param flower_counts: allocate the flowers to
+        :param flower_counts: flowers and associated counts for for available flowers
         :return: list of tuples of (self.suitor_id, recipient_id, chosen_bouquet)
         the list should be of length len(self.num_suitors) - 1 because you should give a bouquet to everyone
          but yourself
@@ -44,14 +44,6 @@ class BaseSuitor(ABC):
         return self.prepare_bouquets(flower_counts)
 
     @abstractmethod
-    def score_type(self, bouquet: Bouquet):
-        """
-        :param bouquet: an arrangement of flowers
-        :return: A score representing preference of the flower types in the bouquet
-        """
-        pass
-
-    @abstractmethod
     def zero_score_bouquet(self):
         """
         :return: a Bouquet for which your scoring function will return 0
@@ -66,17 +58,25 @@ class BaseSuitor(ABC):
         pass
 
     @abstractmethod
-    def score_color(self, bouquet: Bouquet):
+    def score_types(self, types: Dict[FlowerColors, int]):
         """
-        :param bouquet: an arrangement of flowers
+        :param types: dictionary of flower types and their associated counts in the bouquet
+        :return: A score representing preference of the flower types in the bouquet
+        """
+        pass
+
+    @abstractmethod
+    def score_colors(self, colors: Dict[FlowerColors, int]):
+        """
+        :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
         pass
 
     @abstractmethod
-    def score_size(self, bouquet: Bouquet):
+    def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
-        :param bouquet: an arrangement of flowers
+        :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
         pass

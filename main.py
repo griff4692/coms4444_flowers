@@ -7,7 +7,7 @@ import pandas as pd
 from remi import start
 from scipy.stats import rankdata
 
-from flowers import Bouquet, get_all_possible_flowers, sample_n_random_flowers, get_all_possible_bouquets
+from flowers import Bouquet, get_all_possible_flowers, sample_n_random_flowers
 from gui_app import FlowerApp
 from suitors.base import BaseSuitor
 from suitors.suitor_factory import suitor_by_name
@@ -147,10 +147,12 @@ class FlowerMarriageGame:
 
 
 def aggregate_score(suitor: BaseSuitor, bouquet: Bouquet):
-    color_score = suitor.score_color(bouquet)
-    size_score = suitor.score_color(bouquet)
-    type_score = suitor.score_type(bouquet)
-    return color_score + size_score + type_score
+    color_score = suitor.score_colors(bouquet.colors)
+    size_score = suitor.score_sizes(bouquet.sizes)
+    type_score = suitor.score_types(bouquet.types)
+    agg_score = color_score + size_score + type_score
+    assert 0 <= agg_score <= 1
+    return agg_score
 
 
 def validate_suitor(suitor):

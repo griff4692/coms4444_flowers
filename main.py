@@ -83,10 +83,21 @@ class FlowerMarriageGame:
     def resolve_feedback_func(self, suitor):
         return suitor.receive_feedback_timed if self.restrict_time else suitor.receive_feedback
 
+    def log_round(self, curr_round):
+        for i in range(self.p):
+            for j in range(self.p):
+                if i == j:
+                    continue
+                rank, score, bouquet = (
+                    self.ranks[curr_round, i, j], self.scores[curr_round, i, j], self.bouquets[curr_round, i, j])
+                giver = f'{self.suitors[i].name}_{self.suitors[i].suitor_id}'
+                receiver = f'{self.suitors[j].name}_{self.suitors[j].suitor_id}'
+                str = f'{giver} bouquet to {receiver} scored {round(score, 3)} (rank={rank}) -> {bouquet}'
+                self.logger.info(str)
+
     def simulate_round(self, curr_round):
         suitor_ids = [suitor.suitor_id for suitor in self.suitors]
         flowers_for_round = sample_n_random_flowers(self.possible_flowers, self.num_flowers_to_sample)
-        # bouquets = get_all_possible_bouquets(flowers_for_round)
         offers = list(itertools.chain(
             *map(lambda suitor: self.resolve_prepare_func(suitor)(flowers_for_round), self.suitors)))
         for (suitor_from, suitor_to, bouquet) in offers:
@@ -103,6 +114,8 @@ class FlowerMarriageGame:
         self.ranks[curr_round, :, :] = round_ranks
         list(map(lambda i: self.resolve_feedback_func(self.suitors[i])(
             tuple(zip(self.ranks[curr_round, i, :], self.scores[curr_round, i, :]))), suitor_ids))
+
+        self.log_round(curr_round)
 
     def simulate_next_round(self):
         if self.next_round < self.d:
@@ -130,9 +143,11 @@ class FlowerMarriageGame:
             priority[:, married] = float('-inf')
 
             # Select the most excited partner and his or her chosen flower-giver as the next in the marriage queue
-            marriage_pair = np.unravel_index(np.argmax(priority, axis=None), priority.shape)
-            marriage_score = priority[marriage_pair]
-            suitor, chooser = marriage_pair
+            winning_pairs_w_ties = np.argwhere(priority == np.max(priority))
+            num_ties = winning_pairs_w_ties.shape[0]
+            # Break ties at random
+            suitor, chooser = winning_pairs_w_ties[np.random.choice(np.arange(num_ties), size=(1,))[0], :]
+            marriage_score = priority[suitor, chooser]
             self.logger.info(f'{chooser} chose to marry {suitor} with a score of {marriage_score}')
             married[suitor] = married[chooser] = True
             marriage_unions.append({'suitor': suitor, 'chooser': chooser})

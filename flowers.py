@@ -49,7 +49,7 @@ class Flower:
         """
         :return: This is how flowers will be printed. Also, the output of str(Flower)
         """
-        return f'(size={self.size}, color={self.color}, type={self.type})'
+        return f'{self.size.name}-{self.color.name}-{self.type.name}'
 
 
 class Bouquet:
@@ -58,7 +58,7 @@ class Bouquet:
         :param arrangement: dictionary of Flowers as keys and counts as values.
         """
         # Sort by flower names so that the equivalent Bouquets have equivalent string representations
-        self.arrangement = OrderedDict(sorted(arrangement.items(), key=lambda x: str(x[0])))
+        self.arrangement = OrderedDict(sorted(arrangement.items(), key=lambda x: (-x[1], str(x[0]))))
         self.sizes, self.colors, self.types = defaultdict(int), defaultdict(int), defaultdict(int)
         for flower, count in arrangement.items():
             self.sizes[flower.size] += 1
@@ -81,7 +81,9 @@ class Bouquet:
         return flowers
 
     def __str__(self):
-        return '|'.join([f'{k} -> {v}' for k, v in self.arrangement.items()])
+        if len(self.arrangement) == 0:
+            return 'empty'
+        return ','.join([f'{k}:{v}' for k, v in self.arrangement.items()])
 
 
 def get_all_possible_bouquets(flowers: Dict[Flower, int]):

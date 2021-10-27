@@ -41,11 +41,11 @@ class FlowerApp(App):
         is_done = False
         for i in range(3):
             for j in range(4):
-                container = gui.Container(width='100%', height='100%', position='relative')
+                container = gui.Container(width='100%', height='100%')
                 container.set_style({
                     'background-color': str(flowers[flower_idx].color.name).lower(),
-                    # 'position': 'relative',
                 })
+                container.add_class('relative')
                 flower_type = str(flowers[flower_idx].type.name).lower()
                 sizes = {
                     'small': '33%',
@@ -57,15 +57,20 @@ class FlowerApp(App):
                     'medium': '16.5%',
                     'large': '0%'
                 }
-                size = sizes[flowers[flower_idx].size.name.lower()]
-                margin = margins[flowers[flower_idx].size.name.lower()]
+                flower_size = flowers[flower_idx].size.name.lower()
+
+                label = gui.Label()
+                label.attributes['class'] = 'hoverable'
+                label.set_text(str(flowers[flower_idx]).replace('-', ' '))
+                container.add_child('label', label)
+
                 image = gui.Image(f'/res:{flower_type}.png')
                 image.set_style({
-                    'max-height': size,
-                    'max-width': size,
+                    'max-height': sizes[flower_size],
+                    'max-width': sizes[flower_size],
                     'width': 'auto',
                     'height': 'auto',
-                    'margin': margin
+                    'margin': margins[flower_size]
                 })
                 container.append(image)
                 bouquet_grid.append(container, key=f'{i}_{j}')

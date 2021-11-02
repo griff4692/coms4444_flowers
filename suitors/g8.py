@@ -1,8 +1,11 @@
 from typing import Dict
-
+from collections import Counter
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
 import random
+import numpy as np
+from constants import MAX_BOUQUET_SIZE
+from utils import flatten_counter
 
 
 class Suitor(BaseSuitor):
@@ -15,17 +18,17 @@ class Suitor(BaseSuitor):
         super().__init__(days, num_suitors, suitor_id, name='g8')
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
-        """
-        :param flower_counts: flowers and associated counts for for available flowers
+
+        """:param flower_counts: flowers and associated counts for for available flowers
         :return: list of tuples of (self.suitor_id, recipient_id, chosen_bouquet)
         the list should be of length len(self.num_suitors) - 1 because you should give a bouquet to everyone
          but yourself
 
-        To get the list of suitor ids not including yourself, use the following snippet:
+        To get the list of suitor ids not including yourself, use the following snippet:"""
 
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
-        """
+
         pass
 
     def zero_score_bouquet(self):
@@ -61,7 +64,8 @@ class Suitor(BaseSuitor):
             total = total + number
 
         # get average score for number of flowers
-        score = score/total
+        if total != 0:
+            score = score/total
 
         # multiply by .25 since each type, sixe, color, number is .25 weight
         return score*.25
@@ -88,7 +92,8 @@ class Suitor(BaseSuitor):
             total = total + number
 
         # get average score for number of flowers
-        score = score / total
+        if total != 0:
+            score = score / total
 
         # multiply by .25 since each type, sixe, color, number is .25 weight
         return score * .25
@@ -114,7 +119,8 @@ class Suitor(BaseSuitor):
             total = total + number
 
         # get average score for number of flowers
-        score = score / total
+        if total != 0:
+            score = score / total
 
         # multiply by .25 since each type, sixe, color, number is .25 weight
         score = score * .25

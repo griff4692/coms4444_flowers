@@ -39,6 +39,59 @@ class Suitor(BaseSuitor):
             self.bouq_Dict[recipient_id].append((chosen_bouquet, None))
 
         return self.suitor_id, recipient_id, chosen_bouquet
+    def _prepare_bouquet_inter_rounds(self, remaining_flowers, recipient_id):
+        best_bouquet_score = max(bouq_Dict[recipient_id], key=lambda e: int(e[1]))
+        best_bouquet = best_bouquet_score[0]
+        best_score = best_bouquet_score[1]
+        num_remaining = sum(remaining_flowers.values())
+        size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
+        changes = 0
+        if size > 0:
+            if (best_score < 0.7):
+                chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size, ), replace=False)
+                chosen_flower_counts = dict(Counter(chosen_flowers))
+                for k, v in chosen_flower_counts.items():
+                    remaining_flowers[k] -= v
+                    assert remaining_flowers[k] >= 0
+            else:
+                chosen_flowers ={}
+                for flower, count in best_bouquet.items():
+                    if remaining_flowers[flower] >= count:
+                        chosen_flowers[flower] = count
+                    elif remaining_flowers[flower] > 0:
+                        chosen_flowers[flower] = remaining_flowers[flower]
+        else:
+            chosen_flower_counts = dict()
+        chosen_bouquet = Bouquet(chosen_flower_counts)
+
+        
+        self.bouq_Dict[recipient_id].append((chosen_bouquet, None))
+        return self.suitor_id, recipient_id, chosen_bouquet
+
+
+    def _prepare_bouquet_last_round(self, remaining_flowers, recipient_id):
+        best_bouquet_score = max(bouq_Dict[recipient_id], key=lambda e: int(e[1]))
+        best_bouquet = best_bouquet_score[0]
+        best_score = best_bouquet_score[1]
+        num_remaining = sum(remaining_flowers.values())
+        size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
+        changes = 0
+        if size > 0:
+            chosen_flowers ={}
+            for flower, count in best_bouquet.items():
+                if remaining_flowers[flower] >= count:
+                    chosen_flowers[flower] = count
+                elif remaining_flowers[flower] > 0:
+                    chosen_flowers[flower] = remaining_flowers[flower]
+        else:
+            chosen_flower_counts = dict()
+        chosen_bouquet = Bouquet(chosen_flower_counts)
+
+        return self.suitor_id, recipient_id, chosen_bouquet
+
+        
+        
+
     
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
@@ -62,11 +115,12 @@ class Suitor(BaseSuitor):
 
         # Last day: best bouquet
         elif(self.days_remaining == 0):
-            return None
+            return list(map(lambda recipient_id: self._prepare_bouquet_last_round(remaining_flowers, recipient_id), recipient_ids))
             
         # Every day in between
         else:
-            return None
+            return list(map(lambda recipient_id: self._prepare_bouquet_inter_rounds(remaining_flowers, recipient_id), recipient_ids))
+
         # Decrement days remaining
         self.days_remaining -= 1
 

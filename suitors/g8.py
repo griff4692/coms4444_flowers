@@ -2,6 +2,7 @@ from typing import Dict
 
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
+import random
 
 
 class Suitor(BaseSuitor):
@@ -31,7 +32,7 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 0
         """
-        pass
+        return Bouquet({})
 
     def one_score_bouquet(self):
         """
@@ -44,21 +45,85 @@ class Suitor(BaseSuitor):
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        pass
+        # weights
+        weights = [.1, .2, .35, 1]
+
+        # get preference order
+        random.shuffle(weights)
+
+        score = 0
+        total = 0
+        # sum up the scores of each flower type
+        for flower in types:
+            index = flower.value
+            number = types[flower]
+            score = score + (weights[index]*number)
+            total = total + number
+
+        # get average score for number of flowers
+        score = score/total
+
+        # multiply by .25 since each type, sixe, color, number is .25 weight
+        return score*.25
+
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        pass
+        # weights
+        weights = [.1, .3, .5, .5, 1, 1]
+
+        # get preference order
+        random.shuffle(weights)
+
+        score = 0
+        total = 0
+        # sum up the scores of each flower type
+        for flower in colors:
+            index = flower.value
+            number = colors[flower]
+            score = score + (weights[index] * number)
+            total = total + number
+
+        # get average score for number of flowers
+        score = score / total
+
+        # multiply by .25 since each type, sixe, color, number is .25 weight
+        return score * .25
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
-        pass
+        # weights
+        weights = [0, .5, 1]
+
+        # get preference order
+        random.shuffle(weights)
+
+        score = 0
+        total = 0
+        # sum up the scores of each flower type
+        for flower in sizes:
+            index = flower.value # get enum value for flower attribute
+            number = sizes[flower] # get number of flowers
+            score = score + (weights[index] * number)
+            total = total + number
+
+        # get average score for number of flowers
+        score = score / total
+
+        # multiply by .25 since each type, sixe, color, number is .25 weight
+        score = score * .25
+
+        # count number of flowers for the last .25
+        weights_number = [0, .08, .16, .24, .32, .4, .48, .56, .64, .72, .8, .88, 1]
+        score_count = weights_number[total]*.25
+
+        return score+score_count
 
     def receive_feedback(self, feedback):
         """

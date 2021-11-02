@@ -1,5 +1,6 @@
 from typing import Dict, Tuple, List, Union
 import heapq
+import random
 
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
@@ -51,6 +52,8 @@ class Suitor(BaseSuitor):
         self.rand_man = random_suitor.RandomSuitor(days, num_suitors, suitor_id)
         # Cached bouquets from current round
         self.bouquets = {}
+        bad_color_num = random.randint(0, len(FlowerColors)-1)
+        self.bad_color_enum = FlowerColors(bad_color_num)
 
     @staticmethod
     def can_construct(bouquet: Bouquet, flower_counts: Dict[Flower, int]):
@@ -112,34 +115,47 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 0
         """
-        return self.rand_man.zero_score_bouquet()
+        f = Flower(FlowerSizes.Small, self.bad_color_enum, FlowerTypes.Rose)
+        d = {f: 1}
+        return Bouquet(d)
 
     def one_score_bouquet(self):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
-        return self.rand_man.one_score_bouquet()
+        good_color_enum = None
+        for v in FlowerColors:
+            if v != self.bad_color_enum:
+                good_color_enum = v
+                break
+        f = Flower(FlowerSizes.Small, good_color_enum, FlowerTypes.Rose)
+        d = {f: 1}
+        return Bouquet(d)
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        return self.rand_man.score_types(types)
+        return 0.0
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        return self.rand_man.score_colors(colors)
+        for c, v in colors.items():
+            if c == self.bad_color_enum and v != 0:
+                return 0
+
+        return 1.0
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
-        return self.rand_man.score_sizes(sizes)
+        return 0.0
 
     def receive_feedback(self, feedback):
         """

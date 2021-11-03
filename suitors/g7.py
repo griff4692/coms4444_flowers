@@ -50,7 +50,7 @@ class Suitor(BaseSuitor):
         size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
         changes = 0
         if size > 0:
-            if (best_score < 0.7):
+            if (best_score < 0.5):
                 chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size, ), replace=False)
                 chosen_flower_counts = dict(Counter(chosen_flowers))
                 for k, v in chosen_flower_counts.items():
@@ -80,7 +80,6 @@ class Suitor(BaseSuitor):
         best_score = best_bouquet_score[1]
         num_remaining = sum(remaining_flowers.values())
         size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
-        print(type(best_bouquet))
         changes = 0
         if size > 0:
             chosen_flower_counts ={}
@@ -115,23 +114,23 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
-        print("DAYS REMAINING" + str(self.days_remaining))
         # First day: pass random? assortment of size 6 to everyone
         if (self.days_remaining == 1):
+            # Increment days_remaining
             self.days_remaining += 1
             return list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
 
         # Last day: best bouquet
         elif(self.days_remaining == self.days):
-            self.days_remaining += 1
             return list(map(lambda recipient_id: self._prepare_bouquet_last_round(remaining_flowers, recipient_id), recipient_ids))
             
         # Every day in between
         else:
+            # Increment days_remaining
             self.days_remaining += 1
             return list(map(lambda recipient_id: self._prepare_bouquet_inter_rounds(remaining_flowers, recipient_id), recipient_ids))
 
-        # Decrement days remaining
+        
         
 
     def zero_score_bouquet(self):

@@ -1,3 +1,4 @@
+import random
 from typing import Dict, List
 
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, MAX_BOUQUET_SIZE, \
@@ -50,30 +51,33 @@ class Suitor(BaseSuitor):
         self.bouquet_history = defaultdict(list)
         # the one score that we have taken so for for each recipient
         # key: recipient_id, value: the largest score we get from that recipient_id
-        self.score_one_recipients = {i: 0 for i in range(num_suitors) if i != suitor_id}
+        self.recipients_largest_score_ = {i: 0 for i in range(num_suitors) if i != suitor_id}
+        # remember all the recipients' score so that we can decide which flower we can give at the last day
+        self.recipients_all_score = []
 
-    # choose one score bouquet from the flowerColor.probability
+    # choose one score bouquet randomly from the flowerColor.probability until reached the percentage
     def choose_one_score_bouquet_for_ourselves(self, probability_table: Dict):
         remain_probability = self.percentage
-        # TODO: how many types of colors arrangement that we plan to choose
-        # expectations of flowers chosen, I just set it as 6 because for now I don't want choose too many types
-        max_choose_flowers = 6
-        while remain_probability > 0 and max_choose_flowers > 0:
-            for key, value in probability_table.items():
-                # we don't consider the empty flowers
-                if len(key) == 0:
-                    continue
-                if (len(key) not in self.score_one_flowers_for_us or key not in self.score_one_flowers_for_us[len(key)]) \
-                        and (value <= remain_probability or abs(value - remain_probability) < 0.01):
-                    self.score_one_flowers_for_us[len(key)].append(key)
-                    remain_probability -= value
-                    max_choose_flowers -= 1
-                    break
+
+        probability_table_list = defaultdict(list)
+        for key in probability_table.keys():
+            probability_table_list[key] = list(probability_table[key].items())
+
+        while remain_probability > 0:
+            # TODO: think of a way to break the remain_probability, what's the exact value, here I just assume 10^-5
+            if remain_probability < pow(10, -5):
+                break
+            # we don't consider the empty flowers to be score 1
+            size = int(np.random.randint(1, MAX_BOUQUET_SIZE + 1))
+            flower, probability = random.choice(probability_table_list[size])
+            if probability <= remain_probability:
+                remain_probability -= probability
+                self.score_one_flowers_for_us[size].append(flower)
 
     # for each player, randomly guess what they want if we haven't got score 1 for their group
     def _prepare_bouquet(self, remaining_flowers, recipient_id):
-        # if we got 1.0 score from that group before, skip it
-        if int(self.score_one_recipients[recipient_id]) == 1:
+        # TODO: if we got 1.0 score from that group before, skip it or we should keep guessing
+        if int(self.recipients_largest_score_[recipient_id]) == 1:
             chosen_flower_counts = dict()
         else:
             # randomly choosing the flowers
@@ -94,14 +98,52 @@ class Suitor(BaseSuitor):
         chosen_bouquet = Bouquet(chosen_flower_counts)
         return self.suitor_id, recipient_id, chosen_bouquet
 
-    # TODO: in the final round, choose the flowers given to each recipient
+    # in the final round, choose the flowers given to each recipient
     # can use self.score_one_recipients, sort the dict by values,
     # and give flowers according to self.bouquet_history_score
     # choose check if we got that arrangement of flowers
-    # Question: what if we happens to get three flowers but lose one,
-    # should we skip that arrangement or to find the nearest flower to meet the needs
-    def prepare_for_marry_day(self):
-        pass
+    def prepare_for_marry_day(self, remaining_flowers: Dict[Flower, int], recipient_ids: List[int]):
+        recipient_visited = set()
+        self.recipients_all_score.sort(key=lambda x: -x[1])
+        recipient_chosen_flowers = dict()
+
+        for recipient_id, score in self.recipients_all_score:
+            if len(recipient_visited) == self.num_suitors - 1:
+                break
+
+            if recipient_id in recipient_visited:
+                continue
+
+            # if the score is too low, let's stop using the flowers that we remember
+            # TODO: what's the exact score that we stop using the flowers that we remember
+            if score < 0.5:
+                break
+
+            flowers = self.bouquet_history_score[recipient_id][score]
+            exist_flower = True
+            current_remaining_flowers = remaining_flowers.copy()
+            for one_flower, count in flowers.items():
+                if one_flower not in current_remaining_flowers or current_remaining_flowers[one_flower] < count:
+                    exist_flower = False
+                    break
+                current_remaining_flowers[one_flower] -= count
+
+            if exist_flower:
+                remaining_flowers = current_remaining_flowers
+                recipient_visited.add(recipient_id)
+                recipient_chosen_flowers[recipient_id] = self.suitor_id, recipient_id, Bouquet(flowers)
+
+        # if we cannot find flowers to all players, we will randomly assign the flower
+        if len(recipient_visited) != self.num_suitors - 1:
+            for recipient_id in recipient_ids:
+                if recipient_id not in recipient_visited:
+                    recipient_visited.add(recipient_id)
+                    recipient_chosen_flowers[recipient_id] = self._prepare_bouquet(remaining_flowers, recipient_id)
+
+        flower_list = []
+        for recipient_id in recipient_ids:
+            flower_list.append(recipient_chosen_flowers[recipient_id])
+        return flower_list
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
@@ -116,14 +158,15 @@ class Suitor(BaseSuitor):
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
         self.current_day += 1
-        # if it is the final day, we should hand out the flowers that have the best score and we remember so far
-        # if self.current_day == self.days:
-        #     return self.prepare_for_marry_day()
-
         all_ids = np.arange(self.num_suitors)
-        recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
-        return list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
+        recipient_ids = all_ids[all_ids != self.suitor_id]
+        # if it is the final day, we should hand out the flowers that have the best score and we remember so far
+        if self.current_day == self.days:
+            return self.prepare_for_marry_day(remaining_flowers, recipient_ids)
+
+        result = list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
+        return result
 
     def zero_score_bouquet(self):
         """
@@ -135,7 +178,7 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
-        # fine the first flower in self.score_one_flowers_for_us
+        # find the first flower in self.score_one_flowers_for_us
         count = 0
         flowers = dict()
         flower_color_map = {"W": FlowerColors.White, "Y": FlowerColors.Yellow, "R": FlowerColors.Red,
@@ -203,12 +246,13 @@ class Suitor(BaseSuitor):
                 continue
             rank, score = feedback[recipient_id]
             flower_sent = self.bouquet_history[recipient_id][-1]
-            flower_tuple = []
-            for flower, count in flower_sent.items():
-                flower_tuple.append((flower, count))
+            # flower_tuple = []
+            # for flower, count in flower_sent.items():
+            #     flower_tuple.append((flower, count))
 
-            self.bouquet_history_score[recipient_id][score] = flower_tuple
-            self.score_one_recipients[recipient_id] = max(self.score_one_recipients[recipient_id], score)
+            self.bouquet_history_score[recipient_id][score] = flower_sent
+            self.recipients_largest_score_[recipient_id] = max(self.recipients_largest_score_[recipient_id], score)
+            self.recipients_all_score.append((recipient_id, score))
 
 
 ''' usage of PeopleSimulator:
@@ -243,12 +287,11 @@ class PeopleSimulator:
 
 
 ''' usage of FlowerColorSimulator:
-flowerColor = FlowerColorSimulator(range(1, 13)) -> all possibilities from number of flowers = 1 to 12
+flowerColor = FlowerColorSimulator(range(0, 13)) -> all possibilities from number of flowers = 0 to 12
 times = 10000 # set up number of rounds -> 10000 is 12 seconds for range(0, 13)
 flowerColor.simulate_possibilities(times, people.probability)
-get the table:flowerColor.probability from larger to smaller
-key is the tuple, means the flower arrangement
-for example, ('B',) means number of flowers = 1, and I only want one blue
+key is the bouquet size, value is a dict, key is the tuple, means the flower arrangement, value is the probability of that arrangemnet
+for example, flowerColor.probability[1][('B',)] means number of flowers = 1, and I only want one blue
 value is the probability of that flower arrangement in considering of number of players
 '''
 
@@ -261,10 +304,10 @@ class FlowerColorSimulator:
         self.color_map = {0: "W", 1: "Y", 2: "R", 3: "P", 4: "O", 5: "B"}
         colors = sorted(list(self.color_map.values()))
 
-        self.probability = defaultdict(float)
+        self.probability = defaultdict(dict)
         for num in self.num_flowers_to_sample:
             for c in combinations_with_replacement(colors, num):
-                self.probability[c] = 0
+                self.probability[num][c] = 0
 
     def simulate_possibilities(self, times: int, people_probability: Dict):
         equal_probability = False
@@ -279,16 +322,21 @@ class FlowerColorSimulator:
                     flower_list.extend([self.color_map[flower.color.value]] * value)
 
                 flower_list.sort()
-                self.probability[tuple(flower_list)] += 1
+                self.probability[num][tuple(flower_list)] += 1
 
-        for key, value in self.probability.items():
-            self.probability[key] = value / times
-            if not equal_probability:
-                self.probability[key] *= people_probability[len(key)]
+        for key in self.probability.keys():
+            for value, count in self.probability[key].items():
+                self.probability[key][value] = count / times
+                if not equal_probability:
+                    self.probability[key][value] *= people_probability[key]
 
         if not equal_probability:
-            all_probability = sum(self.probability.values())
-            for key, value in self.probability.items():
-                self.probability[key] = value / all_probability
+            all_probability = 0
+            for key in self.probability.keys():
+                all_probability += sum(self.probability[key].values())
 
-        self.probability = dict(sorted(self.probability.items(), key=lambda item: -item[1]))
+            for key in self.probability.keys():
+                for value, count in self.probability[key].items():
+                    self.probability[key][value] = count / all_probability
+
+        # self.probability = dict(sorted(self.probability.items(), key=lambda item: -item[1]))

@@ -16,6 +16,27 @@ class Suitor(BaseSuitor):
         :param suitor_id: unique id of your suitor in range(num_suitors)
         """
         super().__init__(days, num_suitors, suitor_id, name='g8')
+        self.type_weights = [.1, .2, .35, 1]
+        self.color_weights = [.1, .3, .5, .5, 1, 1]
+        self.size_weights = [0, .5, 1]
+        random.shuffle(self.type_weights)
+        random.shuffle(self.color_weights)
+        random.shuffle(self.size_weights)
+
+
+    def _prepare_bouquet(self, remaining_flowers, recipient_id):
+        num_remaining = sum(remaining_flowers.values())
+        size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
+        if size > 0:
+            chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size, ), replace=False)
+            chosen_flower_counts = dict(Counter(chosen_flowers))
+            for k, v in chosen_flower_counts.items():
+                remaining_flowers[k] -= v
+                assert remaining_flowers[k] >= 0
+        else:
+            chosen_flower_counts = dict()
+        chosen_bouquet = Bouquet(chosen_flower_counts)
+        return self.suitor_id, recipient_id, chosen_bouquet
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
 
@@ -25,11 +46,10 @@ class Suitor(BaseSuitor):
          but yourself
 
         To get the list of suitor ids not including yourself, use the following snippet:"""
-
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
-
-        pass
+        remaining_flowers = flower_counts.copy()
+        return list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
 
     def zero_score_bouquet(self):
         """
@@ -41,7 +61,12 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
-        pass
+        max_flower = Flower(
+            size=FlowerSizes(self.size_weights.index(1)),
+            color=FlowerColors(self.color_weights.index(1)),
+            type=FlowerTypes(self.type_weights.index(1))
+        )
+        return Bouquet({max_flower: 12})
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
@@ -49,10 +74,10 @@ class Suitor(BaseSuitor):
         :return: A score representing preference of the flower types in the bouquet
         """
         # weights
-        weights = [.1, .2, .35, 1]
+        # weights = [.1, .2, .35, 1]
 
         # get preference order
-        random.shuffle(weights)
+        # random.shuffle(weights)
 
         score = 0
         total = 0
@@ -60,7 +85,7 @@ class Suitor(BaseSuitor):
         for flower in types:
             index = flower.value
             number = types[flower]
-            score = score + (weights[index]*number)
+            score = score + (self.type_weights[index]*number)
             total = total + number
 
         # get average score for number of flowers
@@ -77,10 +102,10 @@ class Suitor(BaseSuitor):
         :return: A score representing preference of the flower colors in the bouquet
         """
         # weights
-        weights = [.1, .3, .5, .5, 1, 1]
+        # weights = [.1, .3, .5, .5, 1, 1]
 
         # get preference order
-        random.shuffle(weights)
+        # random.shuffle(weights)
 
         score = 0
         total = 0
@@ -88,7 +113,7 @@ class Suitor(BaseSuitor):
         for flower in colors:
             index = flower.value
             number = colors[flower]
-            score = score + (weights[index] * number)
+            score = score + (self.color_weights[index] * number)
             total = total + number
 
         # get average score for number of flowers
@@ -104,10 +129,10 @@ class Suitor(BaseSuitor):
         :return: A score representing preference of the flower sizes in the bouquet
         """
         # weights
-        weights = [0, .5, 1]
+        # weights = [0, .5, 1]
 
         # get preference order
-        random.shuffle(weights)
+        # random.shuffle(weights)
 
         score = 0
         total = 0
@@ -115,7 +140,7 @@ class Suitor(BaseSuitor):
         for flower in sizes:
             index = flower.value # get enum value for flower attribute
             number = sizes[flower] # get number of flowers
-            score = score + (weights[index] * number)
+            score = score + (self.size_weights[index] * number)
             total = total + number
 
         # get average score for number of flowers

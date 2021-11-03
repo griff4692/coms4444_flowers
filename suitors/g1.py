@@ -18,13 +18,13 @@ class Suitor(BaseSuitor):
         :param suitor_id: unique id of your suitor in range(num_suitors)
         """
         super().__init__(days, num_suitors, suitor_id, name='g1')
-        # step 1: get the probability for people range from 0 - num_suitors
-        people = PeopleSimulator(num_suitors)
-        people.simulate_give_flowers(10000)
+        # step 1: get the probability for bouquet range from 0 - MAX_BOUQUET_SIZE(12) given by the people size
+        bouquet = BouquetSimulator(num_suitors)
+        bouquet.simulate_give_flowers(10000)
         # step 2: get the probability for flower colors range from 0 - MAX_BOUQUET_SIZE(12)
         flowerColor = FlowerColorSimulator(list(range(MAX_BOUQUET_SIZE + 1)))
-        flowerColor.simulate_possibilities(5000, people.probability)
-        # self.flower_probability_table = flowerColor.probability
+        flowerColor.simulate_possibilities(5000, bouquet.probability)
+        self.flower_probability_table = flowerColor.probability
 
         self.color_map = {0: "W", 1: "Y", 2: "R", 3: "P", 4: "O", 5: "B"}
 
@@ -39,7 +39,7 @@ class Suitor(BaseSuitor):
         # and also should notice that tuple is sorted,
         # so when to find whether exists a flower, sort the colors first then transfer it to tuple
         self.score_one_flowers_for_us = defaultdict(list)
-        self.choose_one_score_bouquet_for_ourselves(flowerColor.probability)
+        self.choose_one_score_bouquet_for_ourselves(self.flower_probability_table)
 
         self.current_day = 0
         # bouquet_history_score: remember the flowers and score of each recipient
@@ -76,7 +76,8 @@ class Suitor(BaseSuitor):
 
     # for each player, randomly guess what they want if we haven't got score 1 for their group
     def _prepare_bouquet(self, remaining_flowers, recipient_id):
-        # TODO: if we got 1.0 score from that group before, skip it or we should keep guessing
+        # TODO: if we got 1.0 score from that group before, skip it or we should keep guessing,
+        #  because we may not get that 1 score in the final round given by the flowers
         if int(self.recipients_largest_score_[recipient_id]) == 1:
             chosen_flower_counts = dict()
         else:
@@ -262,7 +263,7 @@ people.simulate_give_flowers(times)
 '''
 
 
-class PeopleSimulator:
+class BouquetSimulator:
     def __init__(self, players: int):
         self.people = players
         self.total_flowers = 6 * (self.people - 1)

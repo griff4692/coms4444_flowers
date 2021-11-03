@@ -7,7 +7,7 @@ from suitors.g1 import Suitor as G1Suitor
 # from suitors.g4 import Suitor as G4Suitor
 # from suitors.g5 import Suitor as G5Suitor
 # from suitors.g6 import Suitor as G6Suitor
-# from suitors.g7 import Suitor as G7Suitor
+#from suitors.g7 import Suitor as G7Suitor
 # from suitors.g8 import Suitor as G8Suitor
 # from suitors.g9 import Suitor as G9Suitor
 # from suitors.g10 import Suitor as G10Suitor
@@ -27,4 +27,4 @@ def suitor_by_name(team_name, *args):
         error_msg = f'Invalid group name provided --> {team_name}'
         logger.error(error_msg)
         raise Exception(error_msg)
-    return RandomSuitor(*args)
+    return G7Suitor(*args)

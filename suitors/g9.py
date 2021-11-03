@@ -20,7 +20,20 @@ class Suitor(BaseSuitor):
         super().__init__(days, num_suitors, suitor_id, name='g9')
         self.bouquets = {} # dictionary with the bouquet we gave to each player in a given round
                            # create similar round that stores all bouquets along with their scores for every round
-        self.random_suiton = random_suitor.RandomSuitor(days, num_suitors, suitor_id)
+
+        temp = self.random_sequence(6)
+        self.color_score = [FlowerColors(i) for i in temp]
+        temp = self.random_sequence(4)
+        self.type_score = [FlowerTypes(i) for i in temp]
+        temp = self.random_sequence(3)
+        self.size_score = [FlowerSizes(i) for i in temp]
+        
+    def random_sequence(self, n):
+        sequence = np.arange(n)
+        np.random.shuffle(sequence)
+        return sequence
+
+
 
     def _prepare_bouquet(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
@@ -62,34 +75,55 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 0
         """
-        pass
+        min_flower = Flower(
+            size=self.size_score[0],
+            color=self.color_score[0],
+            type=self.type_score[0]
+        )
+        return Bouquet({min_flower: 0})
 
     def one_score_bouquet(self):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
-        pass
+        max_flower = Flower(
+            size=self.size_score[2],
+            color=self.color_score[5],
+            type=self.type_score[3]
+        )
+        return Bouquet({max_flower: 12})
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        pass
+        score = 0
+        for type in types:
+            score += types[type] * self.type_score.index(type)
+        return score / 117
+
+
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        pass
+        score = 0
+        for color in colors:
+            score += colors[color] * self.color_score.index(color)
+        return score / 130
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
-        pass
+        score = 0
+        for size in sizes:
+            score += sizes[size] * self.size_score.index(size)
+        return score / 104
 
     def receive_feedback(self, feedback):
         """

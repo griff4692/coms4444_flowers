@@ -29,7 +29,7 @@ class Suitor(BaseSuitor):
         self.color_map = {0: "W", 1: "Y", 2: "R", 3: "P", 4: "O", 5: "B"}
 
         # TODO: define the percentage, the relationship between percentage, days and num_suitors
-        self.percentage = 0.2
+        self.percentage = 0.1
         # self.percentage = 2 / (days - 1) * (num_suitors - 1)
 
         # step 3: choose our one score flowers from the color probability table
@@ -256,10 +256,10 @@ class Suitor(BaseSuitor):
             self.recipients_all_score.append((recipient_id, score))
 
 
-''' usage of PeopleSimulator:
-people = People(9) -> number of players
+''' usage of BouquetSimulator:
+bouquet = BouquetSimulator(9) -> number of players
 times = 10000 # set up number of rounds -> 10000 is 0.2 second for 9 players
-people.simulate_give_flowers(times)
+bouquet.simulate_give_flowers(times)
 '''
 
 
@@ -310,9 +310,9 @@ class FlowerColorSimulator:
             for c in combinations_with_replacement(colors, num):
                 self.probability[num][c] = 0
 
-    def simulate_possibilities(self, times: int, people_probability: Dict):
+    def simulate_possibilities(self, times: int, bouquet_probability: Dict):
         equal_probability = False
-        if len(people_probability) == 0:
+        if len(bouquet_probability) == 0:
             equal_probability = True
 
         for num in self.num_flowers_to_sample:
@@ -329,7 +329,7 @@ class FlowerColorSimulator:
             for value, count in self.probability[key].items():
                 self.probability[key][value] = count / times
                 if not equal_probability:
-                    self.probability[key][value] *= people_probability[key]
+                    self.probability[key][value] *= bouquet_probability[key]
 
         if not equal_probability:
             all_probability = 0

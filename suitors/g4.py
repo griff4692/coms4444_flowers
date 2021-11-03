@@ -183,7 +183,7 @@ class Suitor(BaseSuitor):
         if len(colors) == 0:
             return 0.0
 
-        avg_types = float(np.mean([self.type_mapping[x] for x in flatten_counter(colors)]))
+        avg_types = float(np.mean([self.color_mapping[x] for x in flatten_counter(colors)]))
         return avg_types / (3 * (len(FlowerColors) - 1))
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
@@ -194,7 +194,7 @@ class Suitor(BaseSuitor):
         if len(sizes) == 0:
             return 0.0
 
-        avg_types = float(np.mean([self.type_mapping[x] for x in flatten_counter(sizes)]))
+        avg_types = float(np.mean([self.size_mapping[x] for x in flatten_counter(sizes)]))
         return avg_types / (3 * (len(FlowerSizes) - 1))
 
     def receive_feedback(self, feedback):

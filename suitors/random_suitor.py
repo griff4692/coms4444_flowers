@@ -109,4 +109,7 @@ class RandomSuitor(BaseSuitor):
         :param feedback:
         :return: nothing
         """
+        
         self.feedback.append(feedback)
+        print(feedback)
+        

@@ -1,7 +1,9 @@
 from typing import Dict
+from collections import Counter
 
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
+import numpy as np
 
 
 class Suitor(BaseSuitor):
@@ -12,6 +14,22 @@ class Suitor(BaseSuitor):
         :param suitor_id: unique id of your suitor in range(num_suitors)
         """
         super().__init__(days, num_suitors, suitor_id, name='g4')
+        self.remaining_turns = days
+        all_ids = np.arange(num_suitors)
+        self.recipient_ids = all_ids[all_ids != suitor_id]
+        self.to_be_tested = self.generate_tests()
+        self.train_data = np.zeros((len(self.recipient_ids), 6, 4, 3))  # feedback score from other recipients
+
+    def generate_tests(self):
+        to_be_tested = {}
+        # TODO can set up a ratio for different variables that ensure each variable is getting tested within #days
+        for recipient_id in self.recipient_ids:
+            to_be_tested[str(recipient_id)] = []
+            to_be_tested[str(recipient_id)].append([fc for fc in FlowerColors])
+            to_be_tested[str(recipient_id)].append([ft for ft in FlowerTypes])
+            to_be_tested[str(recipient_id)].append([fs for fs in FlowerSizes])
+
+        return to_be_tested
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
@@ -25,7 +43,88 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
-        pass
+        self.remaining_turns -= 1
+        bouquet_for_all = []  # return value
+        # if self.remaining_turns == 1:  # TODO second-to-last-day: testing phase
+        #     pass
+        if self.remaining_turns == 0:  # last day: final round
+            pass
+        else:  # training phase: conduct controlled experiments
+            flower_info = self._flatten_flower_info(flower_counts)
+            for ind in range(len(self.recipient_ids)):
+                recipient_id = self.recipient_ids[ind]
+                chosen_flowers = []  # for building a bouquet later
+                tested = False
+
+                # color
+                for c_test_ind in range(len(self.to_be_tested[str(recipient_id)][0])):
+                    c_test = self.to_be_tested[str(recipient_id)][0][c_test_ind]
+                    nonzero_items = np.nonzero(flower_info[c_test.value])
+                    if len(nonzero_items[0]) > 0:
+                        # decrement flower_info at c_test, t_test, s_test
+                        flower_info[c_test.value][nonzero_items[0][0]][nonzero_items[1][0]] -= 1
+                        # decrement c_test from self.to_be_tested
+                        self.to_be_tested[str(recipient_id)][0].remove(c_test)
+                        tested = True
+
+                        # TODO for now only append one flower but we'll consider bouquet size later
+                        # for (t, s) in zip(nonzero_items[0], nonzero_items[1]):
+                        chosen_flowers.append(Flower(color=c_test,
+                                                     type=FlowerTypes(nonzero_items[0][0]),
+                                                     size=FlowerSizes(nonzero_items[1][0])))
+                        break
+
+                # type
+                if not tested:
+                    for t_test_ind in range(len(self.to_be_tested[str(recipient_id)][1])):
+                        t_test = self.to_be_tested[str(recipient_id)][1][t_test_ind]
+                        nonzero_items = np.nonzero(flower_info[t_test.value])
+                        if len(nonzero_items[0]) > 0:
+                            # decrement flower_info at c_test, t_test, s_test
+                            flower_info[nonzero_items[0][0]][t_test.value][nonzero_items[1][0]] -= 1
+                            # decrement t_test from self.to_be_tested
+                            self.to_be_tested[str(recipient_id)][1].remove(t_test)
+                            tested = True
+
+                            # TODO for now only append one flower but we'll consider bouquet size later
+                            # for (c, s) in zip(nonzero_items[0], nonzero_items[1]):
+                            chosen_flowers.append(Flower(color=FlowerColors(nonzero_items[0][0]),
+                                                         type=t_test.value,
+                                                         size=FlowerSizes(nonzero_items[1][0])))
+                            break
+
+                # size
+                if not tested:
+                    for s_test_ind in range(len(self.to_be_tested[str(recipient_id)][2])):
+                        s_test = self.to_be_tested[str(recipient_id)][2][s_test_ind]
+                        nonzero_items = np.nonzero(flower_info[s_test.value])
+                        if len(nonzero_items[0]) > 0:
+                            # decrement flower_info at c_test, t_test, s_test
+                            flower_info[nonzero_items[0][0]][nonzero_items[1][0]][s_test.value] -= 1
+                            # decrement s_test from self.to_be_tested
+                            self.to_be_tested[str(recipient_id)][2].remove(s_test)
+
+                            # TODO for now only append one flower but we'll consider bouquet size later
+                            # for (c, s) in zip(nonzero_items[0], nonzero_items[1]):
+                            chosen_flowers.append(Flower(color=FlowerColors(nonzero_items[0][0]),
+                                                         type=FlowerTypes(nonzero_items[1][0]),
+                                                         size=s_test.value))
+
+                # build the bouquet
+                chosen_flower_counts = dict(Counter(np.asarray(chosen_flowers)))
+                chosen_bouquet = Bouquet(chosen_flower_counts)
+                bouquet_for_all.append([self.suitor_id, recipient_id, chosen_bouquet])
+
+            return bouquet_for_all
+
+    @staticmethod
+    def _flatten_flower_info(flower_counts):
+        flowers = flower_counts.keys()
+        flower_info = np.zeros((6, 4, 3))  # (color, type, size)
+        for flower in flowers:
+            flower_info[flower.color.value][flower.type.value][flower.size.value] = flower_counts[flower]
+        return flower_info
+
 
     def zero_score_bouquet(self):
         """
@@ -45,6 +144,8 @@ class Suitor(BaseSuitor):
         :return: A score representing preference of the flower types in the bouquet
         """
         pass
+
+
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """

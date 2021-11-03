@@ -130,7 +130,10 @@ class FlowerMarriageGame:
     def marry_folks(self):
         final_scores = self.scores[-1, :, :]
         married = np.full((self.p,), False)
-        second_best_scores = np.array([np.sort(list(set(final_scores[:, i])))[-2] for i in range(self.p)])
+        second_best_scores = np.clip(
+            np.array([np.sort(list(set(final_scores[:, i])))[-2] for i in range(self.p)]),
+            0, 1
+        )
         self.advantage = final_scores - second_best_scores
         priority = np.copy(self.advantage)
 

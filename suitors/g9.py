@@ -3,6 +3,7 @@ from collections import Counter
 
 import numpy as np
 import random
+import statistics
 
 from constants import MAX_BOUQUET_SIZE
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
@@ -132,13 +133,31 @@ class Suitor(BaseSuitor):
         """
         print(self.suitor_id)
         final_scores_tuples = [] # a list of tuples (final_score, suitor_num, bouquet)
+        scores = []
+        for suitor_num, (rank, score) in enumerate(feedback):
+            if suitor_num != self.suitor_id:
+                scores.append(score)
+        median_score = statistics.median(scores)
+        
         for suitor_num, (rank, score) in enumerate(feedback):
             if suitor_num != self.suitor_id: # we shouldn't add ourselves to the list of players for whom we will create a bouquet
                 # TODO: update final_score claculation to 
                 # 1) give more weight to ranking
                 # 2) take into consideration the number of people who got the same ranking
                 # maybe use a final_score =w_1*rank + w_2*score function
-                final_score = score/rank
+                # used score / rank^2 --> as rank gets worse, the final_score will exponentially get worse
+                # checkScoreRange(score, median_score)
+                final_score = score/rank^2
                 final_scores_tuples.append((final_score, suitor_num, self.bouquets[suitor_num]))
         self.feedback.append(sorted(final_scores_tuples, reverse=True))
 
+    def checkScoreRange(score, median_score):
+        """
+        :param score:
+        :return 0 if our score is less than the median
+         return 1 if our score is >= the median:
+        """
+        if score >= median_score:
+            return 1
+        else:
+            return 0

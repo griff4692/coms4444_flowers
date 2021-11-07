@@ -125,7 +125,7 @@ class Suitor(BaseSuitor):
         for size in sizes:
             score += sizes[size] * self.size_score.index(size)
         return score / 104
-
+    
     def receive_feedback(self, feedback):
         """
         :param feedback:
@@ -133,6 +133,8 @@ class Suitor(BaseSuitor):
         """
         print(self.suitor_id)
         final_scores_tuples = [] # a list of tuples (final_score, suitor_num, bouquet)
+        final_scores_tuples_above_median = [] # a list of tuples (final_score, suitor_num, bouquet)
+        final_scores_tuples_below_median = [] # a list of tuples (final_score, suitor_num, bouquet)
         scores = []
         for suitor_num, (rank, score) in enumerate(feedback):
             if suitor_num != self.suitor_id:
@@ -147,11 +149,20 @@ class Suitor(BaseSuitor):
                 # maybe use a final_score =w_1*rank + w_2*score function
                 # used score / rank^2 --> as rank gets worse, the final_score will exponentially get worse
                 # checkScoreRange(score, median_score)
-                final_score = score/rank^2
+                new_rank = rank/(self.num_suitors - 1) #normalize rankings so that they are in the [0, 1] range
+                final_score = score/(new_rank*new_rank)
                 final_scores_tuples.append((final_score, suitor_num, self.bouquets[suitor_num]))
-        self.feedback.append(sorted(final_scores_tuples, reverse=True))
+                if self.checkScoreRange(score, median_score) == 1:
+                    final_scores_tuples_above_median.append((final_score, suitor_num, self.bouquets[suitor_num]))
+                else:
+                    final_scores_tuples_below_median.append((final_score, suitor_num, self.bouquets[suitor_num]))
+        feedback_above_median = sorted(final_scores_tuples_above_median, reverse=True)
+        feedback_below_median = sorted(final_scores_tuples_below_median, reverse=True)
+        new_feedback = feedback_above_median
+        new_feedback.extend(feedback_below_median)
+        self.feedback.append(new_feedback)
 
-    def checkScoreRange(score, median_score):
+    def checkScoreRange(self, score, median_score):
         """
         :param score:
         :return 0 if our score is less than the median

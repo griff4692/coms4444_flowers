@@ -147,10 +147,8 @@ class Suitor(BaseSuitor):
                 # 1) give more weight to ranking
                 # 2) take into consideration the number of people who got the same ranking
                 # maybe use a final_score =w_1*rank + w_2*score function
-                # used score / rank^2 --> as rank gets worse, the final_score will exponentially get worse
-                # checkScoreRange(score, median_score)
-                new_rank = rank/(self.num_suitors - 1) #normalize rankings so that they are in the [0, 1] range
-                final_score = score/(new_rank*new_rank)
+                new_rank = rank/(self.num_suitors - 1) # normalize rankings so that they are in the [0, 1] range
+                final_score = score/(new_rank*new_rank) # used score / rank^2 --> as rank gets worse, the final_score will exponentially get worse
                 final_scores_tuples.append((final_score, suitor_num, self.bouquets[suitor_num]))
                 if self.checkScoreRange(score, median_score) == 1:
                     final_scores_tuples_above_median.append((final_score, suitor_num, self.bouquets[suitor_num]))

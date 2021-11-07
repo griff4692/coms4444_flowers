@@ -19,8 +19,9 @@ class Suitor(BaseSuitor):
         :param suitor_id: unique id of your suitor in range(num_suitors)
         """
         super().__init__(days, num_suitors, suitor_id, name='g9')
-        self.bouquets = {} # dictionary with the bouquet we gave to each player in a given round
+        self.bouquets = {} # dictionary with the bouquet we gave to each player in a given round along with the score we received
                            # create similar round that stores all bouquets along with their scores for every round
+        self.current_day = 1 # keep track of the current day, so that we know how many days are left
 
         temp = self.random_sequence(6)
         self.color_score = [FlowerColors(i) for i in temp]
@@ -34,9 +35,21 @@ class Suitor(BaseSuitor):
         np.random.shuffle(sequence)
         return sequence
 
+    def _prepare_bouquet_first_day(self, remaining_flowers, recipient_id):
+        num_remaining = sum(remaining_flowers.values())
+        size = 6 # in the firrst day give everyone 6 flowers
+        chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size, ), replace=False)
+        chosen_flower_counts = dict(Counter(chosen_flowers))
+        for k, v in chosen_flower_counts.items():
+            remaining_flowers[k] -= v
+            assert remaining_flowers[k] >= 0
+        chosen_bouquet = Bouquet(chosen_flower_counts)
+        # store the bouquet we gave to each player in this round along with score 0
+        # the score will be updated when we get the feedback
+        self.bouquets[recipient_id] = (chosen_bouquet, 0)
+        return self.suitor_id, recipient_id, chosen_bouquet
 
-
-    def _prepare_bouquet(self, remaining_flowers, recipient_id):
+    def _prepare_bouquet_intermediate_day(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
         size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
         if size > 0:
@@ -48,7 +61,22 @@ class Suitor(BaseSuitor):
         else:
             chosen_flower_counts = dict()
         chosen_bouquet = Bouquet(chosen_flower_counts)
-        self.bouquets[recipient_id] = chosen_bouquet # store the bouquet we gave to each player in this round 
+        self.bouquets[recipient_id] = (chosen_bouquet, 0) # store the bouquet we gave to each player in this round 
+        return self.suitor_id, recipient_id, chosen_bouquet
+    
+    def _prepare_bouquet_last_day(self, remaining_flowers, recipient_id):
+        num_remaining = sum(remaining_flowers.values())
+        size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
+        if size > 0:
+            chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size, ), replace=False)
+            chosen_flower_counts = dict(Counter(chosen_flowers))
+            for k, v in chosen_flower_counts.items():
+                remaining_flowers[k] -= v
+                assert remaining_flowers[k] >= 0
+        else:
+            chosen_flower_counts = dict()
+        chosen_bouquet = Bouquet(chosen_flower_counts)
+        self.bouquets[recipient_id] = (chosen_bouquet, 0) # store the bouquet we gave to each player in this round 
         return self.suitor_id, recipient_id, chosen_bouquet
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
@@ -61,15 +89,22 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
-        all_ids = np.arange(self.num_suitors)
-        recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
-        if len(self.feedback) == 0: # first round, so we don't have feedback
-            return list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
-        else:
+        if self.current_day == 1: # first day, so we don't have feedback
+            self.current_day += 1
+            all_ids = np.arange(self.num_suitors)
+            recipient_ids = all_ids[all_ids != self.suitor_id]
+            return list(map(lambda recipient_id: self._prepare_bouquet_first_day(remaining_flowers, recipient_id), recipient_ids))
+        elif self.current_day == self.days: # last day
+            # for now use strategy of intermediate day, but definitely need to update that
             prev_round_feedback = self.feedback[len(self.feedback)-1]
             recipient_ids = list(zip(*prev_round_feedback))[1] # sort recipiernt_ids by final score to prioritize players
-            return list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
+            return list(map(lambda recipient_id: self._prepare_bouquet_last_day(remaining_flowers, recipient_id), recipient_ids))
+        else: # intermediate day
+            self.current_day += 1
+            prev_round_feedback = self.feedback[len(self.feedback)-1]
+            recipient_ids = list(zip(*prev_round_feedback))[1] # sort recipiernt_ids by final score to prioritize players
+            return list(map(lambda recipient_id: self._prepare_bouquet_intermediate_day(remaining_flowers, recipient_id), recipient_ids))
 
 
     def zero_score_bouquet(self):
@@ -147,13 +182,13 @@ class Suitor(BaseSuitor):
                 # 1) give more weight to ranking
                 # 2) take into consideration the number of people who got the same ranking
                 # maybe use a final_score =w_1*rank + w_2*score function
+                self.bouquets[suitor_num] = (self.bouquets[suitor_num][0], score) # update score in the dictionary
                 new_rank = rank/(self.num_suitors - 1) # normalize rankings so that they are in the [0, 1] range
                 final_score = score/(new_rank*new_rank) # used score / rank^2 --> as rank gets worse, the final_score will exponentially get worse
-                final_scores_tuples.append((final_score, suitor_num, self.bouquets[suitor_num]))
                 if self.checkScoreRange(score, median_score) == 1:
-                    final_scores_tuples_above_median.append((final_score, suitor_num, self.bouquets[suitor_num]))
+                    final_scores_tuples_above_median.append((final_score, suitor_num, self.bouquets[suitor_num][0]))
                 else:
-                    final_scores_tuples_below_median.append((final_score, suitor_num, self.bouquets[suitor_num]))
+                    final_scores_tuples_below_median.append((final_score, suitor_num, self.bouquets[suitor_num][0]))
         feedback_above_median = sorted(final_scores_tuples_above_median, reverse=True)
         feedback_below_median = sorted(final_scores_tuples_below_median, reverse=True)
         new_feedback = feedback_above_median

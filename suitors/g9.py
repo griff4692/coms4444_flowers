@@ -111,7 +111,6 @@ class Suitor(BaseSuitor):
                 continue
             if best_fit[player][0]==None:
                 give_out[player] = Bouquet({})
-                print(self.all_bouquets[player])
                 continue
             flowers = best_fit[player][0]
             give = {}

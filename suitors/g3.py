@@ -15,6 +15,7 @@ ALL_FEATURES = list(FlowerSizes) + list(FlowerColors) + list(FlowerTypes)
 ESTIMATE_SIZE = 3
 Feature = Union[FlowerTypes, FlowerColors, FlowerSizes]
 
+
 def l2b(l: List[Flower]) -> Bouquet:
     return Bouquet(Counter(l))
 
@@ -44,8 +45,9 @@ def bouquet_to_dictionary(bouquet, feature=None):
 
 def create_bouquets(flower_for_this_round, color_weights, size_weights, type_weights):
     flowers = defaultdict(int)
-    if color_weights and size_weights and type_weights :
-        for c, s, t in zip(flatten_counter(color_weights), flatten_counter(size_weights), flatten_counter(type_weights)):
+    if color_weights and size_weights and type_weights:
+        for c, s, t in zip(flatten_counter(color_weights), flatten_counter(size_weights),
+                           flatten_counter(type_weights)):
             flowers[Flower(s, c, t)] += 1
     return Bouquet(flowers)
 
@@ -98,7 +100,8 @@ def learned_weightage(bouquet_feedback, factor):
 
     return res
 
-def arrange_random (flower_counts: Dict[Flower, int]):
+
+def arrange_random(flower_counts: Dict[Flower, int]):
     bouquet_size = min(sum(flower_counts.values()), random.randint(1, 10))
     res = random.sample(flatten_counter(flower_counts), k=bouquet_size)
     flower_counts = flower_counts.copy()
@@ -121,7 +124,7 @@ class Suitor(BaseSuitor):
 
         self.bouquet_feedback = defaultdict(lambda: dict(color=[], size=[], type=[]))
         self.logger = logging.getLogger(__name__)
-        #self.favorite_bouquet = Bouquet({Flower(FlowerSizes.Large, FlowerColors.Blue, FlowerTypes.Rose): 6, Flower(FlowerSizes.Large, FlowerColors.Red, FlowerTypes.Chrysanthemum): 4})
+        # self.favorite_bouquet = Bouquet({Flower(FlowerSizes.Large, FlowerColors.Blue, FlowerTypes.Rose): 6, Flower(FlowerSizes.Large, FlowerColors.Red, FlowerTypes.Chrysanthemum): 4})
         possible_flowers = []
         bouquet = {}
         for s in FlowerSizes:
@@ -132,7 +135,7 @@ class Suitor(BaseSuitor):
         for i in range(count):
             random_flower = random.choice(possible_flowers)
             if random_flower in bouquet.keys():
-                bouquet[random_flower] = bouquet[random_flower] +1
+                bouquet[random_flower] = bouquet[random_flower] + 1
             else:
                 bouquet[random_flower] = 1
         self.favorite_bouquet = Bouquet(bouquet)
@@ -165,7 +168,7 @@ class Suitor(BaseSuitor):
             else:
                 feature_to_estimate = random.choice(ALL_FEATURES)
             estimation[r_id] = feature_to_estimate
-            #flower_counts, send[r_id] = pick(flower_counts, functools.partial(check_feature, feature=feature_to_estimate))
+            # flower_counts, send[r_id] = pick(flower_counts, functools.partial(check_feature, feature=feature_to_estimate))
             flower_counts, send[r_id] = arrange_random(flower_counts)
 
         self.estimate_history.append(estimation)

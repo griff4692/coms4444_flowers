@@ -22,7 +22,7 @@ class Suitor(BaseSuitor):
         self.bouquets = {} # dictionary with the bouquet we gave to each player in a given round along with the score we received
         self.all_bouquets = {} # dictionary with the bouquet we gave to each player in each round along with the score we received
         self.current_day = 1 # keep track of the current day, so that we know how many days are left
-
+        # self.bouquets = {playerNo:[([types],[colors],[sizes],score),]}
         temp = self.random_sequence(6)
         self.color_score = [FlowerColors(i) for i in temp]
         self.generate_type_sequence()

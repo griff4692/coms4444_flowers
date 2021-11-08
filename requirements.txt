@@ -3,3 +3,4 @@ numpy
 pandas
 remi
 scipy
+scikit-learn

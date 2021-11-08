@@ -140,7 +140,7 @@ class Suitor(BaseSuitor):
         # this loop inputs the score for each bouquet we gave last round
         if len(self.feedback)!=0:
             this_rounds_feedback = self.feedback[-1]
-            for i,rank_score in enumerate(this_rounds_feedback): # rank_score is tuple with rank,score
+            for i,rank_score in enumerate(this_rounds_feedback): # rank_score is tuple with rank,score,ties
                 if i!=self.suitor_id:
                     score = rank_score[1]
                     suitor = i

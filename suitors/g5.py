@@ -196,7 +196,7 @@ class Suitor(BaseSuitor):
             number such that feedback[0] is the feedback for suitor 0.
         :return: nothing
         """
-        for suitor_num, (rank, score) in enumerate(feedback):
+        for suitor_num, (rank, score, _) in enumerate(feedback):
             # Skip ourselves
             if score == float('-inf'):
                 continue

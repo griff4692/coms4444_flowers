@@ -132,6 +132,9 @@ class Suitor(BaseSuitor):
         
         flowers = [(key,value) for key,value in flower_counts.items()]
 
+        if self.turn > 1:
+            self.rank_groups()
+
         for o_id in self.other_suitors:
             r = random.uniform(0,1)
             if r < self.exploration_alpha or self.turn == 1:
@@ -275,3 +278,13 @@ class Suitor(BaseSuitor):
             index += 1
 
         self.feedback.append(feedback)
+
+    def rank_groups(self):
+        g_rank_s = defaultdict(int)
+
+        for o_id in self.other_suitors:
+            rank = self.bouquets_given[o_id][-1][1]
+            score = self.bouquets_given[o_id][-1][2]
+            g_rank_s[o_id] = score/rank
+
+        self.other_suitors = [k for k, v in sorted(g_rank_s.items(), key=lambda x: x[1], reverse=True)]

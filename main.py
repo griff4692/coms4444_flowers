@@ -1,3 +1,4 @@
+from collections import Counter
 import logging
 import itertools
 
@@ -25,7 +26,7 @@ class FlowerMarriageGame:
         self.logger = logging.getLogger(__name__)
         # A CSV config file specifying each group and their associated instances in the game.
         if args.p_from_config:
-            config_df = pd.read_csv('config.csv')
+            config_df = pd.read_csv(args.config_path)
             config_df = config_df[config_df['counts'] > 0]
             assert len(config_df) > 0
             self.suitor_names = flatten_counter(dict(zip(config_df['group'], config_df['counts'])))
@@ -61,6 +62,7 @@ class FlowerMarriageGame:
         self.bouquets = np.empty(shape=(self.d, self.p, self.p), dtype=Bouquet)
         self.scores = np.zeros(shape=(self.d, self.p, self.p), dtype=float)
         self.ranks = np.zeros(shape=(self.d, self.p, self.p), dtype=int)
+        self.ties = np.zeros(shape=(self.d, self.p, self.p), dtype=int)
         self.next_round = 0
         self.marriages = None
         self.advantage = None
@@ -112,8 +114,15 @@ class FlowerMarriageGame:
         np.fill_diagonal(self.scores[curr_round], float('-inf'))
         round_ranks = rankdata(-self.scores[curr_round], axis=0, method='min')
         self.ranks[curr_round, :, :] = round_ranks
+        col_rank_cts = list(map(lambda col: Counter(round_ranks[:, col]), range(self.p)))
+        for row in range(self.p):
+            for col in range(self.p):
+                rank = round_ranks[row, col]
+                self.ties[curr_round, row, col] = col_rank_cts[col][rank]
+
         list(map(lambda i: self.resolve_feedback_func(self.suitors[i])(
-            tuple(zip(self.ranks[curr_round, i, :], self.scores[curr_round, i, :]))), suitor_ids))
+            tuple(zip(self.ranks[curr_round, i, :], self.scores[curr_round, i, :]))  # , self.ties[curr_round, i, :]))
+        ), suitor_ids))
 
         self.log_round(curr_round)
 
@@ -130,10 +139,7 @@ class FlowerMarriageGame:
     def marry_folks(self):
         final_scores = self.scores[-1, :, :]
         married = np.full((self.p,), False)
-        second_best_scores = np.clip(
-            np.array([np.sort(list(set(final_scores[:, i])))[-2] for i in range(self.p)]),
-            0, 1
-        )
+        second_best_scores = np.clip(np.array([np.sort(final_scores[:, i])[-2] for i in range(self.p)]), 0, 1)
         self.advantage = final_scores - second_best_scores
         priority = np.copy(self.advantage)
 
@@ -192,6 +198,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--group', type=str, default='Group name will be duplicated p times. Ignored if p_from_config=True.')
     parser.add_argument('-p_from_config', default=False, action='store_true')
+    parser.add_argument('--config_path', default='config.csv', help='path from which to read in the config file.')
     parser.add_argument('--random_state', type=int, default=1992, help='Random seed.  Fix for consistent experiments')
     parser.add_argument('--port', '-p', type=int, default=8080, help='Port to start')
     parser.add_argument('--address', type=str, default='127.0.0.1', help='Address')

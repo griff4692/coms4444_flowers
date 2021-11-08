@@ -16,31 +16,6 @@ ESTIMATE_SIZE = 3
 Feature = Union[FlowerTypes, FlowerColors, FlowerSizes]
 
 
-def check_feature(flower: Flower, feature: Feature) -> bool:
-    if feature.__class__ == FlowerTypes:
-        return flower.type == feature
-    if feature.__class__ == FlowerColors:
-        return flower.color == feature
-    if feature.__class__ == FlowerSizes:
-        return flower.size == feature
-    assert False
-
-
-def l2b(l: List[Flower]) -> Bouquet:
-    return Bouquet(Counter(l))
-
-
-def pick(flower_counts: Dict[Flower, int], target: Callable[[Flower], bool]) -> Tuple[Dict[Flower, int], Bouquet]:
-    choices = list(filter(target, flatten_counter(flower_counts)))
-    if len(choices) < ESTIMATE_SIZE:
-        return flower_counts, Bouquet(dict())
-    l = random.sample(list(filter(target, flatten_counter(flower_counts))), ESTIMATE_SIZE)
-    remain = flower_counts.copy()
-    for f in l:
-        remain[f] -= 1
-    return remain, l2b(l)
-
-
 def jaccard(our_bouquet_preference, other_preference) -> float:
     score = 0.0
     count = 0
@@ -117,7 +92,7 @@ def learned_weightage(bouquet_feedback, factor):
     return res
 
 def arrange_random (flower_counts: Dict[Flower, int]):
-    bouquet_size = random.randrange(1, 10)
+    bouquet_size = min(sum(flower_counts.values()), random.randrange(1, 10))
     #print("size "+str(bouquet_size))
     possible_options = list(flower_counts.keys())
     bouquet = {}

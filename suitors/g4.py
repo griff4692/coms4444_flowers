@@ -1,5 +1,5 @@
 from typing import Dict
-from collections import Counter
+from collections import Counter, defaultdict
 
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
@@ -28,6 +28,13 @@ class Suitor(BaseSuitor):
         self.color_mapping = self.generate_map(FlowerColors)
         self.type_mapping = self.generate_map(FlowerTypes)
         self.best_arrangement = self.best_bouquet()
+        self.experiments = {}
+        for i in range(num_suitors):
+            if i != suitor_id:
+                self.experiments[i] = defaultdict(list)
+        self.suitor_id = suitor_id # Added this line
+        print('Group 4', self.recipient_ids)
+        print('Our id is ', suitor_id)
 
     def generate_tests(self):
         to_be_tested = {}
@@ -157,13 +164,7 @@ class Suitor(BaseSuitor):
 
                 # store feedback values if available
                 if len(self.feedback) > 0:
-                    feedback_recipient_score = self.feedback[-1][recipient_id][1]
-                    last_bouquet_recipient = self.last_bouquet[ind]
-                    # TODO loop over all flowers in the bouquet; currently there's just one
-                    c_ind = list(last_bouquet_recipient[2].colors.keys())[0].value
-                    t_ind = list(last_bouquet_recipient[2].types.keys())[0].value
-                    s_ind = list(last_bouquet_recipient[2].sizes.keys())[0].value
-                    self.train_feedback[ind][c_ind][t_ind][s_ind] = feedback_recipient_score
+                    self.update_results()
 
             # update last_bouquet
             self.last_bouquet = bouquet_for_all
@@ -229,6 +230,17 @@ class Suitor(BaseSuitor):
                                                  size=s_test.value))
         return chosen_flowers
 
+    # Helper function that adds to results
+    # Make sure that last_bouquet2 is in the correct player order (i.e. suitor 0 is index 0)
+    def update_results(self):
+        results = self.feedback[-1]
+        for i in range(len(results)):
+            if i != self.suitor_id:
+                player = self.experiments[i]
+                given, experiment = self.last_bouquet2[i][2], self.last_bouquet2[i][3]
+                player[experiment].append((given, results[i][1]))
+
+    
     @staticmethod
     def _flatten_flower_info(flower_counts):
         flowers = flower_counts.keys()
@@ -288,3 +300,6 @@ class Suitor(BaseSuitor):
         :return: nothing
         """
         self.feedback.append(feedback)
+        print('Feedback added')
+        print(self.feedback)
+        print(self.feedback[-1])

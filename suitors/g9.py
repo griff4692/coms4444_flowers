@@ -4,7 +4,7 @@ from collections import Counter
 import numpy as np
 import random
 import statistics
-
+import copy
 from constants import MAX_BOUQUET_SIZE
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
@@ -29,7 +29,6 @@ class Suitor(BaseSuitor):
         temp = self.random_sequence(3)
         self.size_score = [FlowerSizes(i) for i in temp]
 
-        
     def random_sequence(self, n):
         sequence = np.arange(n)
         np.random.shuffle(sequence)
@@ -91,7 +90,47 @@ class Suitor(BaseSuitor):
         self.all_bouquets[recipient_id].append((chosen_bouquet, 0)) # store the bouquet we gave to each player in this round 
         return self.suitor_id, recipient_id, chosen_bouquet
     
-    def _prepare_bouquet_last_day(self, remaining_flowers, recipient_id):
+    def _prepare_bouquet_last_day(self, remaining_flowers):
+        def compare(i):
+            return best_fit[i][1]
+        best_fit = {}
+        sequence = []
+        for player in self.all_bouquets:
+            sequence.append(player)
+            best_fit[player]=(None,0)
+            for pair in self.all_bouquets[player]:
+                score = pair[1]
+                flowers = pair[0]
+                if score>best_fit[player][1]:
+                    best_fit[player]  = (flowers,score)
+        sequence.sort(key=compare,reverse=True)
+        give_out  = {}
+        for player in sequence:
+            flowers = best_fit[player][0]
+            give = {}
+            for flower in flowers.flowers():
+                if flower in remaining_flowers and remaining_flowers[flower]>0:
+                    if flower not in give:
+                        give[flower]=0
+                    give[flower]+=1
+                    remaining_flowers[flower]-=1
+                else:
+                    for key in remaining_flowers:
+                        if remaining_flowers[key]>0:
+                            remaining_flowers[key]-=1
+                            if key not in give:
+                                give[key]=0
+                            give[key]+=1
+                            break
+            give_out[player]  = copy.deepcopy(Bouquet(give))
+        print(give_out)
+        ret = []
+        for player in give_out:
+            ret.append((self.suitor_id,player,give_out[player]))
+        return ret
+
+
+        """
         num_remaining = sum(remaining_flowers.values())
         size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
         if size > 0:
@@ -105,8 +144,10 @@ class Suitor(BaseSuitor):
         chosen_bouquet = Bouquet(chosen_flower_counts)
         self.all_bouquets[recipient_id].append((chosen_bouquet, 0)) # store the bouquet we gave to each player in this round
         return self.suitor_id, recipient_id, chosen_bouquet
+        """
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
+        print(flower_counts)
         """
         :param flower_counts: flowers and associated counts for for available flowers
         :return: list of tuples of (self.suitor_id, recipient_id, chosen_bouquet)
@@ -126,7 +167,8 @@ class Suitor(BaseSuitor):
             # for now use strategy of intermediate day, but definitely need to update that
             prev_round_feedback = self.feedback[len(self.feedback)-1]
             recipient_ids = list(zip(*prev_round_feedback))[1] # sort recipiernt_ids by final score to prioritize players
-            return list(map(lambda recipient_id: self._prepare_bouquet_last_day(remaining_flowers, recipient_id), recipient_ids))
+            return self._prepare_bouquet_last_day(remaining_flowers)
+            #return list(map(lambda recipient_id: self._prepare_bouquet_last_day(remaining_flowers, recipient_id), recipient_ids))
         else: # intermediate day
             self.current_day += 1
             prev_round_feedback = self.feedback[len(self.feedback)-1]

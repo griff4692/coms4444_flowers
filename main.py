@@ -121,7 +121,7 @@ class FlowerMarriageGame:
                 self.ties[curr_round, row, col] = col_rank_cts[col][rank]
 
         list(map(lambda i: self.resolve_feedback_func(self.suitors[i])(
-            tuple(zip(self.ranks[curr_round, i, :], self.scores[curr_round, i, :], self.ties[curr_round, i, :]))
+            tuple(zip(self.ranks[curr_round, i, :], self.scores[curr_round, i, :]))  # , self.ties[curr_round, i, :]))
         ), suitor_ids))
 
         self.log_round(curr_round)

@@ -15,6 +15,9 @@ ALL_FEATURES = list(FlowerSizes) + list(FlowerColors) + list(FlowerTypes)
 ESTIMATE_SIZE = 3
 Feature = Union[FlowerTypes, FlowerColors, FlowerSizes]
 
+def l2b(l: List[Flower]) -> Bouquet:
+    return Bouquet(Counter(l))
+
 
 def jaccard(our_bouquet_preference, other_preference) -> float:
     score = 0.0
@@ -96,27 +99,15 @@ def learned_weightage(bouquet_feedback, factor):
     return res
 
 def arrange_random (flower_counts: Dict[Flower, int]):
-    bouquet_size = min(sum(flower_counts.values()), random.randrange(1, 10))
-    #print("size "+str(bouquet_size))
-    possible_options = list(flower_counts.keys())
-    bouquet = {}
-    counter = 0
-
-    while counter < bouquet_size:
-        flower = random.choice(possible_options)
-        if flower_counts[flower] > 0:
-            counter = counter+1
-            if flower in bouquet.keys():
-                bouquet[flower] = bouquet[flower] + 1
-            else:
-                bouquet[flower] = 1
-            flower_counts[flower] = flower_counts[flower] -1
-
-    return flower_counts, Bouquet(bouquet)
+    bouquet_size = min(sum(flower_counts.values()), random.randint(1, 10))
+    res = random.sample(flatten_counter(flower_counts), k=bouquet_size)
+    flower_counts = flower_counts.copy()
+    for f in res:
+        flower_counts[f] -= 1
+    return flower_counts, l2b(res)
 
 
 class Suitor(BaseSuitor):
-
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
         """
         :param days: number of days of courtship

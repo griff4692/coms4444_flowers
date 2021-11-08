@@ -85,7 +85,7 @@ class Suitor(BaseSuitor):
         return {
             'sizes': size_means,
             'types': type_means,
-            'color': color_means
+            'colors': color_means
         }
 
     def split_counts(self, items_to_split, max_number):
@@ -211,7 +211,7 @@ class Suitor(BaseSuitor):
         d = 0
         for unit in units:
             guess = guessed_counts[unit] if unit in guessed_counts else 0
-            target = target_counts[unit] if unit in target else 0
+            target = target_counts[unit] if unit in target_counts else 0
             d += abs(target - guess)
         return d
 

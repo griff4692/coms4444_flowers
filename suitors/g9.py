@@ -23,18 +23,43 @@ class Suitor(BaseSuitor):
 
         temp = self.random_sequence(6)
         self.color_score = [FlowerColors(i) for i in temp]
-        temp = self.random_sequence(4)
-        self.type_score = [FlowerTypes(i) for i in temp]
+        self.generate_type_sequence()
         temp = self.random_sequence(3)
         self.size_score = [FlowerSizes(i) for i in temp]
+
         
     def random_sequence(self, n):
         sequence = np.arange(n)
         np.random.shuffle(sequence)
         return sequence
-
-
-
+    def generate_type_sequence(self):
+        self.type_score = {}
+        self.max_type_sequence = []
+        sequence = np.arange(1820) # 1820 different combination of flower types in total
+        np.random.shuffle(sequence[1:])
+        count = 0
+        for i1 in range(0,13):
+            for i2 in range(0,13-i1):
+                for i3 in range(0, 13 - i1-i2):
+                    for i4 in range(0, 13 - i1-i2-i3):
+                        if sequence[count]==1819 and i1+i2+i3+i4<12:
+                            temp = sequence[count]
+                            sequence[count] = sequence[count+1]
+                            sequence[count+1] = temp
+                        self.type_score[(i1,i2,i3,i4)] = sequence[count]
+                        if sequence[count]==1819:
+                            for i in range(12):
+                                if i<i1:
+                                    self.max_type_sequence.append(0)
+                                    continue
+                                if i<i1+i2:
+                                    self.max_type_sequence.append(1)
+                                    continue
+                                if i<i1+i2+i3:
+                                    self.max_type_sequence.append(2)
+                                    continue
+                                self.max_type_sequence.append(3)
+                        count+=1
     def _prepare_bouquet(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
         size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
@@ -75,37 +100,58 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 0
         """
-        min_flower = Flower(
-            size=self.size_score[0],
-            color=self.color_score[0],
-            type=self.type_score[0]
-        )
-        return Bouquet({min_flower: 0})
+        #min_flower = Flower(
+        #    size=self.size_score[0],
+        #    color=self.color_score[0],
+        #    type=self.type_score[0]
+        #)
+        return Bouquet({})
 
     def one_score_bouquet(self):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
-        max_flower = Flower(
-            size=self.size_score[2],
-            color=self.color_score[5],
-            type=self.type_score[3]
-        )
-        return Bouquet({max_flower: 12})
+        flowers = {}
+        for i in range(12):
+            flower = Flower(
+                size=self.size_score[2],
+                color=self.color_score[5],
+                type=FlowerTypes(self.max_type_sequence[i])
+            )
+            if flower not in flowers:
+                flowers[flower]=0
+            flowers[flower] += 1
 
-    def score_types(self, types: Dict[FlowerTypes, int]):
+        return Bouquet(flowers)
+    def flower_type_to_int(self,type):
+        if type == FlowerTypes.Rose:
+            return 0
+        if type == FlowerTypes.Chrysanthemum:
+            return 1
+        if type == FlowerTypes.Tulip:
+            return 2
+        if type == FlowerTypes.Begonia:
+            return 3
+    def score_types(self, types: Dict[FlowerTypes, int]):#max 4/13
         """
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
+        key = {0:0,1:0,2:0,3:0}
         score = 0
         for type in types:
-            score += types[type] * self.type_score.index(type)
-        return score / 117
+            n = self.flower_type_to_int(type)
+            key[n]+=1
+        combination = [key[i] for i in range(4)]
+        score = self.type_score[tuple(combination)]
+        if score>1700:
+            return 4/13
+        else:
+            return 0
 
 
 
-    def score_colors(self, colors: Dict[FlowerColors, int]):
+    def score_colors(self, colors: Dict[FlowerColors, int]):# max 6 / 13
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
@@ -115,7 +161,7 @@ class Suitor(BaseSuitor):
             score += colors[color] * self.color_score.index(color)
         return score / 130
 
-    def score_sizes(self, sizes: Dict[FlowerSizes, int]):
+    def score_sizes(self, sizes: Dict[FlowerSizes, int]):# max 3/13
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet

@@ -1,5 +1,6 @@
 from typing import Dict
 from collections import Counter
+import math
 
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
@@ -58,7 +59,7 @@ class Suitor(BaseSuitor):
 
     def compute_euc_dist(self, v1, v2):
         # can make higher norm to increase steepness?
-        return np.linalg.norm(v1 - v2)
+        return np.linalg.norm(np.array(v1) - np.array(v2))
 
     def compute_distance_heuristic(self, v1,v2):
         # v1 and v2 bounded from 0 to inf
@@ -68,8 +69,15 @@ class Suitor(BaseSuitor):
         # e.g, [4,4,4], [6,6], [3,3,3,3]
         # then according to our scoring heuristic, the 12 - min(vector) has to result in 0 (otherwise, it is possible
         # that no bq can result in a zero score.
-        THRESHOLD = 0.3 # placeholder for now
-        # THRESHOLD = 1 / (floor(12 / len(v1)) ** 2 * len(v1) + 1)
+        most_even_dist = math.floor(12/len(v1))
+        threshold_vect = [0] * len(v1)
+        threshold_vect[0] = 12
+        THRESHOLD = 1 / (
+            np.linalg.norm(
+                np.array(threshold_vect)-
+                np.array([most_even_dist] * len(v1))
+            ) + 1
+        ) 
         dist =  1 / (self.compute_euc_dist(v1,v2) + 1)
         return dist if dist > THRESHOLD else 0
 

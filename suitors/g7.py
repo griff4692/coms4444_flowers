@@ -21,6 +21,17 @@ class Suitor(BaseSuitor):
         self.days_remaining = 1
         self.bouq_Dict = {}
         self.weights = {}
+        self.num_pref = np.random.randint(1,12)
+
+        self.type_pref = [] # 4 types
+        self.color_pref = [] # 6 colors
+        self.size_pref = [] # 3 sizes
+
+        for i in range(self.num_pref):
+            self.type_pref.append(np.random.randint(0, 3))
+            self.color_pref.append(np.random.randint(0, 5))
+            self.size_pref.append(np.random.randint(0, 2))
+
         """
             player: 
         """
@@ -214,24 +225,25 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 0
         """
-        min_flower = Flower(
-            size = FlowerSizes.Medium,
-            color = FlowerColors.Yellow,
-            type = FlowerTypes.Tulip
-        )
-        return Bouquet({min_flower: 1})
+        return Bouquet({})
 
     def one_score_bouquet(self):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
-        # blue, small, rose
-        max_flower = Flower(
-            size = FlowerSizes.Large,
-            color = FlowerColors.Red,
-            type = FlowerTypes.Chrysanthemum            
-        )
-        return Bouquet({max_flower: 1})
+        bouq = {}
+        for i in range(self.num_pref):
+            f = Flower(
+                size = self.size_pref[i],
+                color = self.color_pref[i],
+                type = self.type_pref[i]
+            )
+            if f in bouq.keys():
+                bouq[f] += 1
+            else:
+                bouq[f] = 1
+
+        return Bouquet(bouq)
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
@@ -244,6 +256,23 @@ class Suitor(BaseSuitor):
             return 1/3
         else:
             return 0.1
+        # max_type_score = 0.25 / 4
+        # type_score = 0
+        # type_count = []
+        # for i in range(4):
+        #     type_count.append(self.type_pref.count(i))
+        
+        # for i in range(len(types.keys())):
+        #     optimum_count = type_count[i]
+        #     zero_count = 0
+        #     if (12 - optimum_count > optimum_count):
+        #         zero_count = 12
+        #     else:
+        #         zero_count = 0
+
+        #     type_score += max_type_score - (abs(optimum_count - types[list(types.keys())[i]]) / abs(zero_count - optimum_count))
+        
+        # return type_score
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
@@ -256,6 +285,23 @@ class Suitor(BaseSuitor):
             return 1/3
         else:
             return 0.1
+        # max_color_score = 0.25 / 6
+        # color_score = 0
+        # color_count = []
+        # for i in range(6):
+        #     color_count.append(self.color_pref.count(i))
+        
+        # for i in range(len(colors.keys())):
+        #     optimum_count = color_count[i]
+        #     zero_count = 0
+        #     if (12 - optimum_count > optimum_count):
+        #         zero_count = 12
+        #     else:
+        #         zero_count = 0
+
+        #     color_score += max_color_score - (abs(optimum_count - colors[list(colors.keys())[i]]) / abs(zero_count - optimum_count))
+        
+        # return color_score
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
@@ -268,6 +314,23 @@ class Suitor(BaseSuitor):
             return 1/3
         else:
             return 0.1
+        # max_size_score = 0.25 / 3
+        # size_score = 0
+        # size_count = []
+        # for i in range(3):
+        #     size_count.append(self.type_pref.count(i))
+        
+        # for i in range(len(sizes.keys())):
+        #     optimum_count = size_count[i]
+        #     zero_count = 0
+        #     if (12 - optimum_count > optimum_count):
+        #         zero_count = 12
+        #     else:
+        #         zero_count = 0
+
+        #     size_score += max_size_score - (abs(optimum_count - sizes[list(sizes.keys())[i]]) / abs(zero_count - optimum_count))
+        
+        # return size_score
 
     def receive_feedback(self, feedback):
         """

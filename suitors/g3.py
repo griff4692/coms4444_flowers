@@ -176,6 +176,25 @@ def learned_weightage(bouquet_feedback, factor) :
 
     return res
 
+def arrange_random (flower_counts: Dict[Flower, int]):
+    bouquet_size = random.randrange(1, 10)
+    #print("size "+str(bouquet_size))
+    possible_options = list(flower_counts.keys())
+    bouquet = {}
+    counter = 0
+
+    while counter < bouquet_size:
+        flower = random.choice(possible_options)
+        if flower_counts[flower] > 0:
+            counter = counter+1
+            if flower in bouquet.keys():
+                bouquet[flower] = bouquet[flower] + 1
+            else:
+                bouquet[flower] = 1
+            flower_counts[flower] = flower_counts[flower] -1
+            
+    return flower_counts, Bouquet(bouquet)
+
 
 
 
@@ -194,7 +213,21 @@ class Suitor(BaseSuitor):
 
         self.bouquet_feedback = {}
         self.logger = logging.getLogger(__name__)
-        self.favorite_bouquet = Bouquet({Flower(FlowerSizes.Large, FlowerColors.Blue, FlowerTypes.Rose): 6, Flower(FlowerSizes.Large, FlowerColors.Red, FlowerTypes.Chrysanthemum): 4})
+        #self.favorite_bouquet = Bouquet({Flower(FlowerSizes.Large, FlowerColors.Blue, FlowerTypes.Rose): 6, Flower(FlowerSizes.Large, FlowerColors.Red, FlowerTypes.Chrysanthemum): 4})
+        possible_flowers = []
+        bouquet = {}
+        for s in FlowerSizes:
+            for t in FlowerTypes:
+                for c in FlowerColors:
+                    possible_flowers.append(Flower(s, c, t))
+        count = random.randrange(1, 12)
+        for i in range(count):
+            random_flower = random.choice(possible_flowers)
+            if random_flower in bouquet.keys():
+                bouquet[random_flower] = bouquet[random_flower] +1
+            else:
+                bouquet[random_flower] = 1
+        self.favorite_bouquet = Bouquet(bouquet) 
         self.recipient_ids = [i for i in range(self.num_suitors) if i != self.suitor_id]
 
     def solve_final(self, flower_count: Dict[Flower, int]):
@@ -241,7 +274,8 @@ class Suitor(BaseSuitor):
             else:
                 feature_to_estimate = random.choice(ALL_FEATURES)
             estimation[r_id] = feature_to_estimate
-            flower_counts, send[r_id] = pick(flower_counts, functools.partial(check_feature, feature=feature_to_estimate))
+            #flower_counts, send[r_id] = pick(flower_counts, functools.partial(check_feature, feature=feature_to_estimate))
+            flower_counts, send[r_id] = arrange_random(flower_counts)
 
         self.estimate_history.append(estimation)
 

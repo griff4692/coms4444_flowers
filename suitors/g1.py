@@ -28,10 +28,8 @@ class Suitor(BaseSuitor):
 
         self.color_map = {0: "W", 1: "Y", 2: "R", 3: "P", 4: "O", 5: "B"}
 
-        # TODO: define the percentage, the relationship between percentage, days and num_suitors
         exponent = log(1 - 1 / (num_suitors - 1)) / (days - 1)
         self.percentage = 1 - exp(exponent)
-        # self.percentage = 2 / (days - 1) * (num_suitors - 1)
 
         # step 3: choose our one score flowers from the color probability table
         # score_one_flowers_for_us: the score of our choices of colors to be 1.0
@@ -66,7 +64,7 @@ class Suitor(BaseSuitor):
 
         while remain_probability > 0:
             # TODO: think of a way to break the remain_probability, what's the exact value, here I just assume 10^-5
-            if remain_probability < pow(10, -5):
+            if remain_probability < self.percentage * pow(10, -5):
                 break
             # we don't consider the empty flowers to be score 1
             size = int(np.random.randint(1, MAX_BOUQUET_SIZE + 1))

@@ -9,26 +9,22 @@ import random
 from collections import defaultdict
 
 """
-    class FlowerSizes(Enum):
-        Small = 0
-        Medium = 1
-        Large = 2
-
-
-    class FlowerColors(Enum):
-        White = 0
-        Yellow = 1
-        Red = 2
-        Purple = 3
-        Orange = 4
-        Blue = 5
-
-
-    class FlowerTypes(Enum):
-        Rose = 0
-        Chrysanthemum = 1
-        Tulip = 2
-        Begonia = 3
+class FlowerSizes(Enum):
+    Small = 0
+    Medium = 1
+    Large = 2
+class FlowerColors(Enum):
+    White = 0
+    Yellow = 1
+    Red = 2
+    Purple = 3
+    Orange = 4
+    Blue = 5
+class FlowerTypes(Enum):
+    Rose = 0
+    Chrysanthemum = 1
+    Tulip = 2
+    Begonia = 3
 """
 
 
@@ -73,9 +69,8 @@ class Suitor(BaseSuitor):
     def prepare_bouquet_for_group(self, group_id, flowers, copy_flower_counts, count = 4, rand=False, last=False):
         bouquet = defaultdict(int)
         bouquet_info = defaultdict(int)
-
         scoring_function = self.scoring_parameters[group_id]
-
+        prev_bouquets = self.bouquets_given[group_id]
         if rand:
             random.shuffle(flowers)
             for _ in range(count):
@@ -86,6 +81,60 @@ class Suitor(BaseSuitor):
                     bouquet[key] += 1
                     copy_flower_counts[str(key)] -= 1
                     break
+        elif last:
+            can_best = True
+            best_score = float('-inf')
+            best_bouquet = None
+            flower_counts = {}
+            for p in prev_bouquets:
+                score = p[1]
+                b = p[0]
+                if score > best_score:
+                    best_score = score
+                    best_bouquet = b
+            if best_bouquet != None:
+                for flower in best_bouquet.flowers():
+                    if str(flower) in copy_flower_counts:
+                        if copy_flower_counts[str(flower)] <= 0:
+                            can_best = False
+                            break
+                        bouquet[flower] += 1
+                        copy_flower_counts[str(flower)] -= 1
+                        if str(flower) in flower_counts:
+                            flower_counts[str(flower)] += 1
+                        else:
+                            flower_counts[str(flower)] = 1
+                    else:
+                        can_best = False
+                        break
+            else:
+                can_best = False
+            if not can_best:
+                bouquet = defaultdict(int)
+                for flower in flower_counts:
+                    copy_flower_counts[flower] += flower_counts[flower]
+                for _ in range(count):
+                    best_flower = None
+                    best_score = -10000
+                    for item in flowers:
+                        key,value = item
+                        score = 0
+                        if copy_flower_counts[str(key)] <= 0:
+                            continue
+                        
+                        score += scoring_function[key.type] - bouquet_info[key.type]
+                        score += scoring_function[key.color] - bouquet_info[key.color]
+                        score += scoring_function[key.size] - bouquet_info[key.size]
+
+                        if score > best_score:
+                            best_score = score
+                            best_flower = key
+                    
+                    if best_flower == None:
+                        break
+                    else:
+                        bouquet[best_flower] += 1
+                        copy_flower_counts[str(best_flower)] -= 1
         else:
             for _ in range(count):
                 best_flower = None
@@ -112,15 +161,14 @@ class Suitor(BaseSuitor):
 
         return (self.suitor_id, group_id, Bouquet(bouquet)), copy_flower_counts
 
+    
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
         :param flower_counts: flowers and associated counts for for available flowers
         :return: list of tuples of (self.suitor_id, recipient_id, chosen_bouquet)
         the list should be of length len(self.num_suitors) - 1 because you should give a bouquet to everyone
-         but yourself
-
+            but yourself
         To get the list of suitor ids not including yourself, use the following snippet:
-
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
@@ -128,7 +176,7 @@ class Suitor(BaseSuitor):
 
         copy_flower_counts = {}
         for key,value in flower_counts.items():
-           copy_flower_counts[str(key)] = value 
+            copy_flower_counts[str(key)] = value 
         
         flowers = [(key,value) for key,value in flower_counts.items()]
 
@@ -136,6 +184,8 @@ class Suitor(BaseSuitor):
             r = random.uniform(0,1)
             if r < self.exploration_alpha or self.turn == 1:
                 b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts, rand=True)
+            elif self.turn >= self.days:
+                b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts, rand=False, last=True)
             else: 
                 b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts) 
             self.bouquets_given[o_id].append([b[2]])

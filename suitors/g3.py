@@ -41,8 +41,9 @@ def bouquet_to_dictionary(bouquet, feature=None):
 
 def create_bouquets(flower_for_this_round, color_weights, size_weights, type_weights):
     flowers = defaultdict(int)
-    for c, s, t in zip(flatten_counter(color_weights), flatten_counter(size_weights), flatten_counter(type_weights)):
-        flowers[Flower(s, c, t)] += 1
+    if color_weights and size_weights and type_weights :
+        for c, s, t in zip(flatten_counter(color_weights), flatten_counter(size_weights), flatten_counter(type_weights)):
+            flowers[Flower(s, c, t)] += 1
     return Bouquet(flowers)
 
 
@@ -82,6 +83,9 @@ def learned_weightage(bouquet_feedback, factor):
         if c > 0:
             res[cols[i]] = c
             temp_sum += c
+
+    if temp_sum == 0:
+        return res
 
     weight = flower_for_each_round / temp_sum
     res = {k: floor(v * weight) for k, v in sorted(res.items(), key=lambda item: item[1])}

@@ -65,7 +65,7 @@ class Suitor(BaseSuitor):
         # counter for how many times our strat has been checked
         self.our_strat_count = [0] * num_suitors
         # max times to check if a suitor has our strat before saying they actually do
-        self.our_strat_max_count = 10 # arbitrarily chosen
+        self.our_strat_max_count = 2 # arbitrarily chosen
 
     # choose one score bouquet randomly from the flowerColor.probability until reached the percentage
     def choose_one_score_bouquet_for_ourselves(self, probability_table: Dict):
@@ -95,6 +95,9 @@ class Suitor(BaseSuitor):
         if self.has_our_strat[recipient_id] == 0 and self.our_strat_count[recipient_id] != 0:
             flowers_sent = self.bouquet_history[recipient_id][-1]
 
+            # print('\n\n\n\nThis is what im trying to color copy')
+            # print(*flowers_sent)
+
             colors_count = [0]*6
             for f,i in flowers_sent.items():
                 colors_count[f.color.value] += i
@@ -103,6 +106,12 @@ class Suitor(BaseSuitor):
             # essentially choose a random bouquet of same color count
             random.shuffle(rem_flowers_list)
 
+            # print('**********************')
+            # print(*rem_flowers_list)
+            # print('**********************')
+
+            # print(colors_count)
+
             chosen_flower_counts = dict()
             for f in rem_flowers_list:
                 if colors_count[f.color.value] > 0:
@@ -110,6 +119,12 @@ class Suitor(BaseSuitor):
                         chosen_flower_counts[f] = 0
                     chosen_flower_counts[f] += 1
                     colors_count[f.color.value] -= 1
+
+            # print('\n this is what i made')
+            # print(*chosen_flower_counts)  
+            # input()
+
+            self.bouquet_history[recipient_id].append(chosen_flower_counts)
 
         elif int(self.recipients_largest_score_[recipient_id]) == 1:
             chosen_flower_counts = dict()
@@ -199,7 +214,16 @@ class Suitor(BaseSuitor):
         if self.current_day == self.days:
             return self.prepare_for_marry_day(remaining_flowers, recipient_ids)
 
-        result = list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
+        result = []
+        suitors = set()
+        for i in range(self.num_suitors):
+            if i != self.suitor_id and self.has_our_strat[i] == 0 and self.our_strat_count[i] != 0:
+                result.append(self._prepare_bouquet(remaining_flowers, i))
+                suitors.add(i)
+        for i in range(self.num_suitors):
+            if i != self.suitor_id and i not in suitors:
+                result.append(self._prepare_bouquet(remaining_flowers, i))
+        # result = list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
         return result
 
     def zero_score_bouquet(self):
@@ -289,17 +313,26 @@ class Suitor(BaseSuitor):
             self.recipients_all_score.append((recipient_id, score))
 
             if score == 1 and self.has_our_strat[recipient_id] == 0:
+
+                # print("\n\n\n")
+                # print(*flower_sent)
+                # input(f'{self.suitor_id} okok: {recipient_id} {score} {self.current_day}')
+
                 # found score 1 and don't know if suitor has our strat yet
 
                 self.our_strat_count[recipient_id] += 1
                 if self.our_strat_count[recipient_id] == self.our_strat_max_count:
                     self.has_our_strat[recipient_id] = 1
-                    # input(f'{self.suitor_id} : {recipient_id} has our strat!')
+                    # input(f'{self.suitor_id} : {recipient_id} has our strat!***********')
 
             elif score != 1 and self.has_our_strat[recipient_id] == 0 and self.our_strat_count[recipient_id] != 0:
                 # was checking if this suitor has our strat, but found a score != 1, they def do not have our strat
 
                 self.has_our_strat[recipient_id] = -1
+
+                # print("\n\n\n")
+                # print(*flower_sent)
+                # input(f'{self.suitor_id} nope: {recipient_id} {score} {self.current_day}')
 
 ''' usage of BouquetSimulator:
 bouquet = BouquetSimulator(9) -> number of players

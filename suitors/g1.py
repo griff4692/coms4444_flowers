@@ -1,6 +1,6 @@
 import random
 from typing import Dict, List
-
+from math import exp, log, factorial
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, MAX_BOUQUET_SIZE, \
     get_all_possible_flowers, sample_n_random_flowers, get_random_flower
 from suitors.base import BaseSuitor
@@ -28,9 +28,8 @@ class Suitor(BaseSuitor):
 
         self.color_map = {0: "W", 1: "Y", 2: "R", 3: "P", 4: "O", 5: "B"}
 
-        # TODO: define the percentage, the relationship between percentage, days and num_suitors
-        self.percentage = 0.1
-        # self.percentage = 2 / (days - 1) * (num_suitors - 1)
+        exponent = log(1 - 1 / (num_suitors - 1)) / (days - 1)
+        self.percentage = 1 - exp(exponent)
 
         # step 3: choose our one score flowers from the color probability table
         # score_one_flowers_for_us: the score of our choices of colors to be 1.0
@@ -65,7 +64,7 @@ class Suitor(BaseSuitor):
 
         while remain_probability > 0:
             # TODO: think of a way to break the remain_probability, what's the exact value, here I just assume 10^-5
-            if remain_probability < pow(10, -5):
+            if remain_probability < self.percentage * pow(10, -5):
                 break
             # we don't consider the empty flowers to be score 1
             size = int(np.random.randint(1, MAX_BOUQUET_SIZE + 1))
@@ -264,18 +263,18 @@ bouquet.simulate_give_flowers(times)
 
 
 class BouquetSimulator:
-    def __init__(self, players: int):
-        self.people = players
-        self.total_flowers = 6 * (self.people - 1)
-        self.max_flower = MAX_BOUQUET_SIZE
-        self.probability = {i: 0 for i in range(self.max_flower + 1)}
+    def __init__(self, num_players: int):
+        self.num_players = num_players
+        self.total_flowers = 6 * (self.num_players - 1)
+        self.max_bouquet_size = MAX_BOUQUET_SIZE
+        self.probability = {i: 0 for i in range(self.max_bouquet_size + 1)}
 
     def simulate_give_flowers(self, times: int):
         for _ in range(times):
             remain = self.total_flowers
-            count = self.people - 1
+            count = self.num_players - 1
             while remain > 0 and count > 0:
-                size = int(np.random.randint(0, min(self.max_flower, remain) + 1))
+                size = int(np.random.randint(0, min(self.max_bouquet_size, remain) + 1))
                 count -= 1
                 remain -= size
                 self.probability[size] += 1
@@ -284,7 +283,7 @@ class BouquetSimulator:
                 self.probability[0] += count
 
         for key, value in self.probability.items():
-            self.probability[key] = value / (times * (self.people - 1))
+            self.probability[key] = value / (times * (self.num_players - 1))
 
 
 ''' usage of FlowerColorSimulator:
@@ -305,31 +304,56 @@ class FlowerColorSimulator:
         self.color_map = {0: "W", 1: "Y", 2: "R", 3: "P", 4: "O", 5: "B"}
         colors = sorted(list(self.color_map.values()))
 
+        """
+        Exp: Size of bouquet = 6 
+        combination = {W, W, Y, Y, R, R}
+        
+        Counts:
+            W: 2
+            Y: 2
+            R: 2
+        
+        Total number of combinations: 6!/(2! 2! 2!)
+        
+        Probability: 6!/(2! 2! 2!) * (1/6)^6
+        
+        In general:
+        
+        Probability = (n!/(a!b!c!...z!)) * (1/6)^n where n is the size of bouquet
+        
+        """
+
         self.probability = defaultdict(dict)
         for num in self.num_flowers_to_sample:
             for c in combinations_with_replacement(colors, num):
-                self.probability[num][c] = 0
+                counts = Counter(c)
+                unique_colors = counts.keys()
+                denominator = 1
+                for color in unique_colors:
+                    denominator *= factorial(counts[color])
+                self.probability[num][c] = pow(1/6, num) * factorial(num)/denominator if num != 0 else 0.1152 # Hard code the probability for empty bouquet
+                # self.probability[num][c] = 0
 
     def simulate_possibilities(self, times: int, bouquet_probability: Dict):
         equal_probability = False
         if len(bouquet_probability) == 0:
             equal_probability = True
 
-        for num in self.num_flowers_to_sample:
-            for _ in range(times):
-                flowers_for_round = sample_n_random_flowers(self.possible_flowers, num)
-                flower_list = []
-                for flower, value in flowers_for_round.items():
-                    flower_list.extend([self.color_map[flower.color.value]] * value)
-
-                flower_list.sort()
-                self.probability[num][tuple(flower_list)] += 1
-
-        for key in self.probability.keys():
-            for value, count in self.probability[key].items():
-                self.probability[key][value] = count / times
-                if not equal_probability:
-                    self.probability[key][value] *= bouquet_probability[key]
+        # for num in self.num_flowers_to_sample:
+        #     for _ in range(times):
+        #         flowers_for_round = sample_n_random_flowers(self.possible_flowers, num)
+        #         flower_list = []
+        #         for flower, value in flowers_for_round.items():
+        #             flower_list.extend([self.color_map[flower.color.value]] * value)
+        #
+        #         flower_list.sort()
+        #         self.probability[num][tuple(flower_list)] += 1
+        #
+        # for key in self.probability.keys():
+        #     for value, count in self.probability[key].items():
+        #         self.probability[key][value] = count / times
+        #         if not equal_probability:
+        #             self.probability[key][value] *= bouquet_probability[key]
 
         if not equal_probability:
             all_probability = 0
@@ -341,3 +365,5 @@ class FlowerColorSimulator:
                     self.probability[key][value] = count / all_probability
 
         # self.probability = dict(sorted(self.probability.items(), key=lambda item: -item[1]))
+
+

@@ -103,9 +103,15 @@ class Suitor(BaseSuitor):
                 flowers = pair[0]
                 if score>best_fit[player][1]:
                     best_fit[player]  = (flowers,score)
+        print(best_fit)
         sequence.sort(key=compare,reverse=True)
         give_out  = {}
         for player in sequence:
+            if player not in best_fit:
+                continue
+            if best_fit[player][0]==None:
+                continue
+            print(best_fit[player],player)
             flowers = best_fit[player][0]
             give = {}
             for flower in flowers.flowers():

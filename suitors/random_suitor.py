@@ -111,5 +111,3 @@ class RandomSuitor(BaseSuitor):
         """
         
         self.feedback.append(feedback)
-        print(feedback)
-        

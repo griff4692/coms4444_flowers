@@ -1,4 +1,5 @@
 from collections import Counter, OrderedDict, defaultdict
+from dataclasses import dataclass
 from enum import Enum
 import itertools
 import random
@@ -34,16 +35,11 @@ class FlowerTypes(Enum):
     Begonia = 3
 
 
+@dataclass(eq=True, frozen=True)
 class Flower:
-    def __init__(self, size: FlowerSizes, color: FlowerColors, type: FlowerTypes):
-        """
-        :param size: flower size
-        :param color: flower color
-        :param type: flower type
-        """
-        self.size = size
-        self.color = color
-        self.type = type
+    size: FlowerSizes
+    color: FlowerColors
+    type: FlowerTypes
 
     def __str__(self):
         """

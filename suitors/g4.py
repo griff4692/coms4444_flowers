@@ -28,9 +28,6 @@ class Suitor(BaseSuitor):
         self.last_bouquet = None  # bouquet we gave out from the last turn
         self.control_group_assignments = self._assign_control_groups()
 
-        self.size_mapping = self.generate_map(FlowerSizes)
-        self.color_mapping = self.generate_map(FlowerColors)
-        self.type_mapping = self.generate_map(FlowerTypes)
         self.best_arrangement = self.generate_random_bouquet()
         self.best_arrangement_size_vec, self.best_arrangement_color_vec, self.best_arrangement_type_vec = \
         self.get_bouquet_score_vectors(self.best_arrangement)
@@ -39,8 +36,6 @@ class Suitor(BaseSuitor):
             if i != suitor_id:
                 self.experiments[i] = defaultdict(list)
         self.suitor_id = suitor_id # Added this line
-        # print('Group 4', self.recipient_ids)
-        # print('Our id is ', suitor_id)
 
     @staticmethod
     def _get_combinations(list1, list2):
@@ -139,25 +134,6 @@ class Suitor(BaseSuitor):
 
         return to_be_tested
 
-    def generate_map(self, flower_enum):
-        sizes = [n.value for n in flower_enum]
-        shuffle(sizes)
-        mapping = {}
-        for idx, name in enumerate(flower_enum):
-            mapping[name] = sizes[idx]
-        return mapping
-
-    def best_bouquet(self):
-        best_size = (sorted([(key, value) for key, value in self.size_mapping.items()], key=lambda x: x[1]))[-1][0]
-        best_color = (sorted([(key, value) for key, value in self.color_mapping.items()], key=lambda x: x[1]))[-1][0]
-        best_type = (sorted([(key, value) for key, value in self.type_mapping.items()], key=lambda x: x[1]))[-1][0]
-        best_flower = Flower(
-            size=best_size,
-            color=best_color,
-            type=best_type
-        )
-        return Bouquet({best_flower: 1})
-
     def able_to_create_bouquet(self, flowers, flowercount):
         for flower, count in flowers.arrangement.items():
             if flower in flowercount:
@@ -197,7 +173,7 @@ class Suitor(BaseSuitor):
                         sortedList.extend(j)
                     sortedList.sort(key = lambda x: x[1], reverse = True)
                     canMake = False
-                    for flowers, score in sortedList:
+                    for flowers, score in sortedList[:math.ceil(len(sortedList)/2)]:
                         if self.able_to_create_bouquet(flowers, flower_counts):
                             canMake = True
                             bouquet_for_all.append([self.suitor_id, i, flowers])

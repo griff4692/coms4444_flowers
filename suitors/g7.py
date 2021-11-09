@@ -21,8 +21,8 @@ class Suitor(BaseSuitor):
         self.days_remaining = 1
         self.bouq_Dict = {}
         self.weights = {}
-        self.num_pref = np.random.randint(1,12)
 
+        self.num_pref = np.random.randint(1,12)
         self.type_pref = [] # 4 types
         self.color_pref = [] # 6 colors
         self.size_pref = [] # 3 sizes
@@ -242,95 +242,136 @@ class Suitor(BaseSuitor):
                 bouq[f] += 1
             else:
                 bouq[f] = 1
-
+        print("***BOUQ SIZE***", self.num_pref)
+        print("***BOUQUET***", bouq)
         return Bouquet(bouq)
+
+    def score_num(self, count: int):
+
+        if count == 0:
+            return 0
+
+        max_num_score = 0.25
+        num_score = 0
+
+        optimum_count = self.num_pref
+        zero_count = 0
+        if (12 - optimum_count > optimum_count):
+            zero_count = 12
+        else:
+            zero_count = 0
+
+        dist_frac = max_num_score / abs(zero_count - optimum_count)
+        index = abs(count - optimum_count)
+        num_score += max_num_score - (dist_frac * index)
+
+        return num_score / 3
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        if(FlowerTypes.Tulip in types.keys() or len(types) == 0):
-            return 0.0
-        elif(FlowerTypes.Chrysanthemum in types.keys()):
-            return 1/3
-        else:
-            return 0.1
-        # max_type_score = 0.25 / 4
-        # type_score = 0
-        # type_count = []
-        # for i in range(4):
-        #     type_count.append(self.type_pref.count(i))
-        
-        # for i in range(len(types.keys())):
-        #     optimum_count = type_count[i]
-        #     zero_count = 0
-        #     if (12 - optimum_count > optimum_count):
-        #         zero_count = 12
-        #     else:
-        #         zero_count = 0
+        if len(types) == 0:
+            return 0
 
-        #     type_score += max_type_score - (abs(optimum_count - types[list(types.keys())[i]]) / abs(zero_count - optimum_count))
         
-        # return type_score
+        bouq_types = []
+        for type in flatten_counter(types):
+            bouq_types.append(type.value)
+
+        max_type_score = 0.25 / 4
+        type_score = 0
+        pref_type_count = []
+        bouq_type_count = []
+
+        for i in range(4):
+            pref_type_count.append(self.type_pref.count(i))
+            bouq_type_count.append(bouq_types.count(i))
+        
+        for i in range(4):
+            optimum_count = pref_type_count[i]
+            zero_count = 0
+            if (12 - optimum_count > optimum_count):
+                zero_count = 12
+            else:
+                zero_count = 0
+            
+            dist_frac = max_type_score / abs(zero_count - optimum_count)
+            index = abs(bouq_type_count[i] - optimum_count)
+            type_score += max_type_score - (dist_frac * index)
+        
+        return type_score + self.score_num(len(types))
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        if(FlowerColors.Yellow in colors.keys() or len(colors) == 0):
-            return 0.0
-        elif(FlowerColors.Red in colors.keys()):
-            return 1/3
-        else:
-            return 0.1
-        # max_color_score = 0.25 / 6
-        # color_score = 0
-        # color_count = []
-        # for i in range(6):
-        #     color_count.append(self.color_pref.count(i))
+        if len(colors) == 0:
+            return 0
         
-        # for i in range(len(colors.keys())):
-        #     optimum_count = color_count[i]
-        #     zero_count = 0
-        #     if (12 - optimum_count > optimum_count):
-        #         zero_count = 12
-        #     else:
-        #         zero_count = 0
+        bouq_colors = []
+        for color in flatten_counter(colors):
+            bouq_colors.append(color.value)
 
-        #     color_score += max_color_score - (abs(optimum_count - colors[list(colors.keys())[i]]) / abs(zero_count - optimum_count))
+        max_color_score = 0.25 / 6
+        color_score = 0
+        pref_color_count = []
+        bouq_color_count = []
+
+        for i in range(6):
+            pref_color_count.append(self.color_pref.count(i))
+            bouq_color_count.append(bouq_colors.count(i))
         
-        # return color_score
+        for i in range(6):
+            optimum_count = pref_color_count[i]
+            zero_count = 0
+            if (12 - optimum_count > optimum_count):
+                zero_count = 12
+            else:
+                zero_count = 0
+            
+            dist_frac = max_color_score / abs(zero_count - optimum_count)
+            index = abs(bouq_color_count[i] - optimum_count)
+            color_score += max_color_score - (dist_frac * index)
+        
+        return color_score + self.score_num(len(colors))
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
-        if(FlowerSizes.Medium in sizes.keys() or len(sizes) == 0):
-            return 0.0
-        elif(FlowerSizes.Large in sizes.keys()):
-            return 1/3
-        else:
-            return 0.1
-        # max_size_score = 0.25 / 3
-        # size_score = 0
-        # size_count = []
-        # for i in range(3):
-        #     size_count.append(self.type_pref.count(i))
-        
-        # for i in range(len(sizes.keys())):
-        #     optimum_count = size_count[i]
-        #     zero_count = 0
-        #     if (12 - optimum_count > optimum_count):
-        #         zero_count = 12
-        #     else:
-        #         zero_count = 0
+        if len(sizes) == 0:
+            return 0
 
-        #     size_score += max_size_score - (abs(optimum_count - sizes[list(sizes.keys())[i]]) / abs(zero_count - optimum_count))
+        bouq_sizes = []
+        for size in flatten_counter(sizes):
+            bouq_sizes.append(size.value)
+
+        max_size_score = 0.25 / 3
+        size_score = 0
+        pref_size_count = []
+        bouq_size_count = []
+
+        for i in range(3):
+            pref_size_count.append(self.size_pref.count(i))
+            bouq_size_count.append(bouq_sizes.count(i))
         
-        # return size_score
+        for i in range(3):
+            optimum_count = pref_size_count[i]
+            zero_count = 0
+            if (12 - optimum_count > optimum_count):
+                zero_count = 12
+            else:
+                zero_count = 0
+            
+            dist_frac = max_size_score / abs(zero_count - optimum_count)
+            index = abs(bouq_size_count[i] - optimum_count)
+            size_score += max_size_score - (dist_frac * index)
+        
+        return size_score + self.score_num(len(sizes))
 
     def receive_feedback(self, feedback):
         """

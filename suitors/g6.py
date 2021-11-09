@@ -2,14 +2,44 @@ from collections import Counter
 from typing import Dict
 
 import itertools
+import threading
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 
 from constants import MAX_BOUQUET_SIZE
-from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, get_all_possible_bouquets
+from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, get_all_possible_flowers
 from utils import flatten_counter
 from suitors.base import BaseSuitor
+
+import time
+import pdb
+
+# str(f.type).replace("<", "").replace(">", "").replace(".", "")
+
+
+def _bouquets_to_df(bouquets: Dict[Flower, int]):
+    bouquets_df = []
+
+    for i in range(len(bouquets)):
+        bouquets_dict = dict()
+        for s in FlowerSizes:
+            bouquets_dict[str(s).replace("<", "").replace(">", "").replace(".", "")] = 0
+        for t in FlowerTypes:
+            bouquets_dict[str(t).replace("<", "").replace(">", "").replace(".", "")] = 0
+        for c in FlowerColors:
+            bouquets_dict[str(c).replace("<", "").replace(">", "").replace(".", "")] = 0
+
+        if len(bouquets[i]) > 0:
+            b = bouquets[i].arrangement
+            for f in b.keys():
+                bouquets_dict[str(f.type).replace("<", "").replace(">", "").replace(".", "")] += b[f]
+                bouquets_dict[str(f.size).replace("<", "").replace(">", "").replace(".", "")] += b[f]
+                bouquets_dict[str(f.color).replace("<", "").replace(">", "").replace(".", "")] += b[f]
+
+        bouquets_df.append(bouquets_dict)
+
+    return pd.DataFrame.from_dict(bouquets_df)
 
 
 class Suitor(BaseSuitor):
@@ -20,8 +50,13 @@ class Suitor(BaseSuitor):
         :param suitor_id: unique id of your suitor in range(num_suitors)
         """
         self.curr_day = 0
+        self.arrangement_hist = []
         self.bouquet_hist = []
         self.score_hist = []
+
+        all_flowers = [str(f) for f in get_all_possible_flowers()]
+        self.all_possible_flowers = dict(zip(all_flowers, [0] * len(all_flowers)))
+        self.all_possible_flower_keys = list(self.all_possible_flowers)
         super().__init__(days, num_suitors, suitor_id, name='g6')
 
     def _prepare_rand_bouquet(self, remaining_flowers, recipient_id):
@@ -39,50 +74,17 @@ class Suitor(BaseSuitor):
         return self.suitor_id, recipient_id, chosen_bouquet
 
 
-    def _bouquets_to_dict(self, bouquets: Dict[Flower, int]):
-        bouquets_df = []
+    def _get_all_possible_bouquets_arr(self, flowers: Dict[Flower, int]):
+        bouquets = [[0] * len(self.all_possible_flowers)]
+        flatten_flowers = [str(f) for f in flatten_counter(flowers)]
+        # for _ in range(int((MAX_BOUQUET_SIZE + 1) / 2)):
+        #     size = np.random.randint(1, MAX_BOUQUET_SIZE + 1)
+        for size in range(int(MAX_BOUQUET_SIZE + 1)):
+            size_bouquets = itertools.combinations(flatten_flowers, size)
+            size_bouquet_counts = [list({**self.all_possible_flowers, **Counter(size_bouquet)}.values()) for size_bouquet in size_bouquets]
+            bouquets.extend(size_bouquet_counts)
 
-        for i in range(len(bouquets)):
-            bouquets_dict = dict()
-            for s in FlowerSizes:
-                bouquets_dict[str(s).replace("<", "").replace(">", "").replace(".", "")] = 0
-            for t in FlowerTypes:
-                bouquets_dict[str(t).replace("<", "").replace(">", "").replace(".", "")] = 0
-            for c in FlowerColors:
-                bouquets_dict[str(c).replace("<", "").replace(">", "").replace(".", "")] = 0
-
-            if len(bouquets[i]) > 0:
-                b = bouquets[i].arrangement
-                for f in b.keys():
-                    bouquets_dict[str(f.type).replace("<", "").replace(">", "").replace(".", "")] += b[f]
-                    bouquets_dict[str(f.size).replace("<", "").replace(">", "").replace(".", "")] += b[f]
-                    bouquets_dict[str(f.color).replace("<", "").replace(">", "").replace(".", "")] += b[f]
-
-            bouquets_df.append(bouquets_dict)
-
-        return pd.DataFrame.from_dict(bouquets_df)
-
-
-    def _tuple_to_bouquet(self, bouquet_tuple):
-        bouquet_dict = dict()
-        if len(bouquet_tuple) > 0:
-            for f in bouquet_tuple:
-                if f not in bouquet_dict:
-                    bouquet_dict[f] = 1
-                else:
-                    bouquet_dict[f] += 1
-
-        return Bouquet(bouquet_dict)
-
-
-    def _get_some_possible_bouquets(self, flowers: Dict[Flower, int]):
-        flat_flower = flatten_counter(flowers)
-        bouquets = [Bouquet({})]
-        size = np.random.randint(1, MAX_BOUQUET_SIZE)
-        size_bouquets = list(set(list(itertools.combinations(flat_flower, size))))
-        bouquets += size_bouquets
         return bouquets
-
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
@@ -90,62 +92,103 @@ class Suitor(BaseSuitor):
         :return: list of tuples of (self.suitor_id, recipient_id, chosen_bouquet)
         the list should be of length len(self.num_suitors) - 1 because you should give a bouquet to everyone
          but yourself
-
         To get the list of suitor ids not including yourself, use the following snippet:
-
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
+        time1 = time.time()
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
 
         bouquets = []
-        chosen_bouquets = []
 
+        all_possible_bouquets_arr = None
         if self.curr_day == self.days - 1:
-            all_bouquets = [self._tuple_to_bouquet(b) for b in get_all_possible_bouquets(remaining_flowers)]
-            all_bouquets_df = self._bouquets_to_dict(all_bouquets)
+            all_possible_bouquets_arr =  self._get_all_possible_bouquets_arr(remaining_flowers)
 
         for i in range(len(recipient_ids)):
-            if self.curr_day != 0 and self.score_hist[i][self.curr_day - 1] == 1: # already know best bouquet possible
-                bouquets.append(dict()) # give empty bouquet so don't waste flowers if already know bouquet is correct
-                chosen_bouquets.append(dict())
+            if self.curr_day != 0 and self.score_hist[i][-1] == 1: # already know best bouquet possible
+                if self.curr_day == self.days - 1: # last day so give best bouquet
+                    # ensure have the flowers to do so
+                    have_flowers = all(remaining_flowers[k] - v >= 0 for (k, v) in self.bouquet_hist[i][-1].items())
+
+                    if have_flowers:
+                        bouquets.append(self.bouquet_hist[i][-1])
+
+                        for k, v in self.bouquet_hist[i][-1].items():
+                            remaining_flowers[k] -= v
+                            assert remaining_flowers[k] >= 0
+                else: # not last day so give empty bouquet to save flowers since already know bouquet is correct
+                    bouquets.append(dict()) # give empty
+
+                    self.bouquet_hist[i].append(self.bouquet_hist[i][-1]) # pretending we are giving best bouquet
+                    self.arrangement_hist[i].append(self.arrangement_hist[i][-1])
             else:
                 if self.curr_day == self.days - 1: # giving bouquet for last day
-                    suitor_id, recipient_id, chosen_bouquet = self._prepare_rand_bouquet(remaining_flowers,
-                                                                                         recipient_ids[i])
-                    bouquets.append((suitor_id, recipient_id, chosen_bouquet))
-                    chosen_bouquets.append(chosen_bouquet)
+                    bouquet_hist = []
+                    for b in self.arrangement_hist[i]:
+                        b_dict = dict()
+                        for f in b:
+                            b_dict[str(f)] = 0 if str(f) not in b_dict else b_dict[str(f)] + 1
+                        bouquet = list({**self.all_possible_flowers, **b_dict}.values())
+                        bouquet_hist.append(bouquet)
+
+                    hist_nparr = np.asarray(bouquet_hist, dtype=int)
+
                     lin_reg = LinearRegression()
-                    lin_reg.fit(self._bouquets_to_dict(self.bouquet_hist[i]), pd.Series(self.score_hist[i]))
+                    lin_reg.fit(hist_nparr, pd.Series(self.score_hist[i]))
 
+                    # # ensuring we have the flowers to do so
+                    # rem_flowers = list({**self.all_possible_flowers, **remaining_flowers}.values())
+                    #
+                    # for possible_bouquet in all_possible_bouquets_arr:
+                    #     print(possible_bouquet)
+                    #     pdb.set_trace()
+                    #
+                    # all_possible_bouquets_arr = [possible_bouquet for possible_bouquet in all_possible_bouquets_arr if
+                    #                              all([rem_flowers[j] - possible_bouquet[j] >= 0 for j in range(len(possible_bouquet))])]
 
-                    pred_score = lin_reg.predict(all_bouquets_df)
-                    max_score = -1
-                    for j in range(len(pred_score)):
-                        if pred_score[j] > max_score:
-                            best_bouquet = all_bouquets[j]
-                            max_score = pred_score[j]
+                    all_possible_bouquets_nparr = np.array(all_possible_bouquets_arr)
+                    pred_score = lin_reg.predict(all_possible_bouquets_nparr)
+                    # getting first instance of best score and using that bouquet
+                    best_flowers = all_possible_bouquets_nparr[np.where(pred_score == max(pred_score))[0][0]]
 
-                            if pred_score[j] == 1:
-                                break
+                    if sum(best_flowers) > 0:
+                        best_bouquet = []
+                        for j in range(len(best_flowers)):
+                            if best_flowers[j] > 0:
+                                pdb.set_trace()
+                                best_bouquet.append(
+                                    [f for f in remaining_flowers.keys() if str(f) == self.all_possible_flower_keys[j]][
+                                        0])
+                                pdb.set_trace()
+
+                        best_bouquet = Bouquet(dict(zip(self.all_possible_flowers, best_flowers)))
+
+                        for k, v in best_bouquet.arrangement.items():
+                            remaining_flowers[k] -= v
+                            assert remaining_flowers[k] >= 0
+                    else:
+                        best_bouquet = Bouquet(dict())
 
                     bouquets.append((self.suitor_id, recipient_ids[i], best_bouquet))
-                    chosen_bouquets.append(best_bouquet)
 
                 else: # give random bouquet to get more data for Linear Regression
                     suitor_id, recipient_id, chosen_bouquet= self._prepare_rand_bouquet(remaining_flowers, recipient_ids[i])
                     bouquets.append((suitor_id, recipient_id, chosen_bouquet))
-                    chosen_bouquets.append(chosen_bouquet)
 
-        if self.curr_day == 0:
-            for i in range(len(recipient_ids)):
-                self.bouquet_hist.append([chosen_bouquets[i]])
-        else:
-            for i in range(len(recipient_ids)):
-                self.bouquet_hist[i].append(chosen_bouquets[i])
+                    if self.curr_day == 0:
+                        self.arrangement_hist.append([chosen_bouquet.arrangement])
+                        self.bouquet_hist.append([chosen_bouquet])
+                    else:
+                        self.arrangement_hist[i].append(chosen_bouquet.arrangement)
+                        self.bouquet_hist[i].append(chosen_bouquet)
+
         self.curr_day += 1
+        time2 = time.time()
+        print("time2 - time1: {}".format(time2 - time1))
+        pdb.set_trace()
         return bouquets
 
     def zero_score_bouquet(self):
@@ -234,10 +277,13 @@ class Suitor(BaseSuitor):
         """
 
         scores = [feedback[i][1] for i in range(len(feedback)) if feedback[i][1] != float('-inf')]
-        if self.curr_day == 1:
-            for i in range(self.num_suitors - 1):
+
+        for i in range(self.num_suitors - 1):
+            if self.curr_day == 1:
                 self.score_hist.append([scores[i]])
-        else:
-            for i in range(self.num_suitors - 1):
+            elif self.score_hist[i][-1] == 1: # already got best score possible so maintaining that knowledge
+                self.score_hist[i].append(1)
+            else:
                 self.score_hist[i].append(scores[i])
-        # self.feedback.append(feedback)
+
+        self.feedback.append(feedback)

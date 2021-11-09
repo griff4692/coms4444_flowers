@@ -1,14 +1,15 @@
 from typing import Dict
 from collections import Counter, defaultdict
+from random import shuffle, choice, randint
+import math
+import random as rand
+import numpy as np
 
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
-from random import shuffle
-import numpy as np
 from utils import flatten_counter
 from constants import MAX_BOUQUET_SIZE
-import random as rand
-import math
+
 
 class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
@@ -30,7 +31,9 @@ class Suitor(BaseSuitor):
         self.size_mapping = self.generate_map(FlowerSizes)
         self.color_mapping = self.generate_map(FlowerColors)
         self.type_mapping = self.generate_map(FlowerTypes)
-        self.best_arrangement = self.best_bouquet()
+        self.best_arrangement = self.generate_random_bouquet()
+        self.best_arrangement_size_vec, self.best_arrangement_color_vec, self.best_arrangement_type_vec = \
+        self.get_bouquet_score_vectors(self.best_arrangement)
         self.experiments = {}
         for i in range(num_suitors):
             if i != suitor_id:
@@ -42,6 +45,56 @@ class Suitor(BaseSuitor):
     @staticmethod
     def _get_combinations(list1, list2):
         return [[list1[i], list2[j]] for i in range(len(list1)) for j in range(len(list2))]
+
+    def generate_random_flower(self):
+        return Flower(
+            size = choice(list(FlowerSizes)),
+            color = choice(list(FlowerColors)),
+            type = choice(list(FlowerTypes)), 
+        )
+
+    def generate_random_bouquet(self):
+        return [self.generate_random_flower() for _ in range(randint(1,MAX_BOUQUET_SIZE))]
+
+    def get_bouquet_score_vectors(self, bouquet_vect):
+        size_vec = [0] * len(FlowerSizes)
+        color_vec = [0] * len(FlowerColors)
+        type_vec = [0] * len(FlowerTypes)
+        for flower in bouquet_vect:
+            size_vec[flower.size.value] += 1
+            color_vec[flower.color.value] += 1
+            type_vec[flower.type.value] += 1
+
+        return size_vec, color_vec, type_vec
+
+    def compute_cosine_sim(self, v1, v2):
+        # v1 and v2 are all positive numbers, so bounded from 0 to 1 
+        return (v1 @ v2.T) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+
+    def compute_euc_dist(self, v1, v2):
+        # can make higher norm to increase steepness?
+        return np.linalg.norm(np.array(v1) - np.array(v2))
+
+    def compute_distance_heuristic(self, v1,v2):
+        # v1 and v2 bounded from 0 to inf
+        # need a cutoff to guarantee 0 score is possible. (e.g, assume we add distances together)
+        # worst case scenario, theoretically the 
+        # smallest maximum distance is assume the optimal bq is 12 flowers distributed amongst all attributes:
+        # e.g, [4,4,4], [6,6], [3,3,3,3]
+        # then according to our scoring heuristic, the 12 - min(vector) has to result in 0 (otherwise, it is possible
+        # that no bq can result in a zero score.
+        most_even_dist = math.floor(12/len(v1))
+        threshold_vect = [0] * len(v1)
+        threshold_vect[0] = 12
+        THRESHOLD = 1 / (
+            np.linalg.norm(
+                np.array(threshold_vect)-
+                np.array([most_even_dist] * len(v1))
+            ) + 1
+        ) 
+        dist =  1 / (self.compute_euc_dist(v1,v2) + 1)
+        return dist if dist > THRESHOLD else 0
+      
 
     def _assign_control_groups(self):
         """
@@ -315,12 +368,25 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 0
         """
-        return Bouquet({})
+        # is there a guaranteed min?
+        # i think the min is when we pick one attribute with 12 flowers, which is minimal in the best_arrangement vector
+        # someone check that logic but I think it works?
+        worstFlower = Flower(
+            size = self.get_min_vector_attribute(self.best_arrangement_size_vec, FlowerSizes),
+            color = self.get_min_vector_attribute(self.best_arrangement_color_vec, FlowerColors),
+            type=self.get_min_vector_attribute(self.best_arrangement_type_vec, FlowerTypes)
+        )
+        return Bouquet({worstFlower: 12})
+
+    def get_min_vector_attribute(self, vector, enumType):
+        zipped = list(zip(vector, enumType))
+        return min(zipped)[1]
 
     def one_score_bouquet(self):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
+        # the below is still true
         return self.best_arrangement
 
     def score_types(self, types: Dict[FlowerTypes, int]):
@@ -328,33 +394,37 @@ class Suitor(BaseSuitor):
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        if len(types) == 0:
-            return 0.0
+        # each vector is like [FlowerType.1 Count, FlowerType.2 Count]
+        vector = [0] * len(FlowerTypes)
 
-        avg_types = float(np.mean([self.type_mapping[x] for x in flatten_counter(types)]))
-        return avg_types / (3 * (len(FlowerTypes) - 1))
+        for key, value in types.items():
+            vector[key.value] = value
+
+        return self.compute_distance_heuristic(vector, self.best_arrangement_type_vec) * 1.0/3.0
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        if len(colors) == 0:
-            return 0.0
+        vector = [0] * len(FlowerColors)
 
-        avg_types = float(np.mean([self.color_mapping[x] for x in flatten_counter(colors)]))
-        return avg_types / (3 * (len(FlowerColors) - 1))
+        for key, value in colors.items():
+            vector[key.value] = value
+
+        return self.compute_distance_heuristic(vector, self.best_arrangement_color_vec) * 1.0/3.0
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
-        if len(sizes) == 0:
-            return 0.0
+        vector = [0] * len(FlowerSizes)
 
-        avg_types = float(np.mean([self.size_mapping[x] for x in flatten_counter(sizes)]))
-        return avg_types / (3 * (len(FlowerSizes) - 1))
+        for key, value in sizes.items():
+            vector[key.value] = value
+
+        return self.compute_distance_heuristic(vector, self.best_arrangement_size_vec) * 1.0/3.0
 
     def receive_feedback(self, feedback):
         """

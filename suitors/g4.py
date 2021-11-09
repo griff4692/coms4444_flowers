@@ -8,7 +8,7 @@ import numpy as np
 from utils import flatten_counter
 from constants import MAX_BOUQUET_SIZE
 import random as rand
-
+import math
 
 class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
@@ -36,8 +36,8 @@ class Suitor(BaseSuitor):
             if i != suitor_id:
                 self.experiments[i] = defaultdict(list)
         self.suitor_id = suitor_id # Added this line
-        print('Group 4', self.recipient_ids)
-        print('Our id is ', suitor_id)
+        # print('Group 4', self.recipient_ids)
+        # print('Our id is ', suitor_id)
 
     @staticmethod
     def _get_combinations(list1, list2):
@@ -122,10 +122,26 @@ class Suitor(BaseSuitor):
         bouquet_for_all_and_etype = []
         flower_info = self._flatten_flower_info(flower_counts)
 
-        # if self.remaining_turns == 1:  # TODO second-to-last-day: testing phase
+        # if self.remaining_turns == 1:  # second-to-last-day: testing phase
         #     pass
 
-        if self.remaining_turns == 0:  # TODO last day: final round. Give out the bouquet with the highest score from the previous tryouts
+        if self.remaining_turns == 0:
+            # TODO final round, give the bouquet with the highest score from the previous tryouts
+            for i in self.recipient_ids:
+                if self.experiments[i]:
+                    highest_temp = -math.inf
+                    maximum_bouquet= None
+                    # for each recipient, if we have data for them, get the highest score and return the same combination to them
+                    sortedList = []
+                    for j in self.experiments[i].values():
+                        sortedList.extend(j)
+                    sortedList.sort(key = lambda x: x[1], reverse = True)
+                # for flowers, score in sortedList:
+
+
+                # if flower_counts
+                bouquet_for_all.append(maximum_bouquet)
+
 
             # find highest score setup for each recipient
             max_args = []
@@ -204,8 +220,8 @@ class Suitor(BaseSuitor):
                 bouquet_for_all_and_etype.append([self.suitor_id, recipient_id, chosen_bouquet, exp_type])
 
                 # store feedback values if available
-                if len(self.feedback) > 0:
-                    self.update_results()
+            if len(self.feedback) > 0:
+                self.update_results()
 
             # update last_bouquet
             self.last_bouquet = bouquet_for_all_and_etype
@@ -228,7 +244,7 @@ class Suitor(BaseSuitor):
 
             # grab flower counts that match with fc_control for this round: list of length 6
             fc_exp_options = flower_info[:, fixed_ft, fixed_fs]
-
+            fc_exp = []
             if sum(fc_exp_options) > 0:  # if there are flowers to work with
 
                 # randomly generate a flower count for each color from the available flowers
@@ -236,7 +252,7 @@ class Suitor(BaseSuitor):
                 exp_type = 'color'
 
             else:  # if there are no flower with the fc_control [size, type] setting
-                pass  # TODO
+                pass # TODO
 
             for fc_ind in range(len(fc_exp)):  # iterate over all colors
                 for _ in range(fc_exp[fc_ind]):  # append flower(s) with color=fc_ind
@@ -256,6 +272,7 @@ class Suitor(BaseSuitor):
                 exp_type = 'type'
             else:
                 pass  # TODO
+
 
             for ft_ind in range(len(ft_exp)):
                 for _ in range(ft_exp[ft_ind]):
@@ -292,7 +309,9 @@ class Suitor(BaseSuitor):
         for i in range(len(results)):
             if i != self.suitor_id:
                 player = self.experiments[i]
-                given, experiment = self.last_bouquet[i][2], self.last_bouquet[i][3]
+                #given, experiment = self.last_bouquet[i][2], self.last_bouquet[i][3]
+                given, experiment = self.last_bouquet[list(self.recipient_ids).index(i)][2], \
+                                    self.last_bouquet[list(self.recipient_ids).index(i)][3]
                 player[experiment].append((given, results[i][1]))
 
     

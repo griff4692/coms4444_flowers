@@ -10,8 +10,6 @@ from suitors.g6 import Suitor as G6Suitor
 from suitors.g7 import Suitor as G7Suitor
 from suitors.g8 import Suitor as G8Suitor
 from suitors.g9 import Suitor as G9Suitor
-from suitors.g10 import Suitor as G10Suitor
-from suitors.g11 import Suitor as G11Suitor
 from suitors.random_suitor import RandomSuitor
 
 

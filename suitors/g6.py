@@ -17,6 +17,8 @@ class Suitor(BaseSuitor):
         :param suitor_id: unique id of your suitor in range(num_suitors)
         """
         super().__init__(days, num_suitors, suitor_id, name='g6')
+        np.random.seed(6)
+        self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
 
     def _prepare_bouquet(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
@@ -102,7 +104,7 @@ class Suitor(BaseSuitor):
         #
         # avg_types = float(np.mean([x.value for x in flatten_counter(types)]))
         #return avg_types / (3 * (len(FlowerTypes) - 1))
-        return len(types) / (len(FlowerSizes)+len(FlowerColors)+len(FlowerTypes))
+        return self.typeWeight*len(types) / len(FlowerTypes)
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
@@ -114,7 +116,7 @@ class Suitor(BaseSuitor):
         #
         # avg_colors = float(np.mean([x.value for x in flatten_counter(colors)]))
         #return avg_colors / (3 * (len(FlowerColors) - 1))
-        return len(colors) / (len(FlowerSizes)+len(FlowerColors)+len(FlowerTypes))
+        return self.colorWeight*len(colors) / len(FlowerColors)
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
@@ -126,7 +128,7 @@ class Suitor(BaseSuitor):
         #
         # avg_sizes = float(np.mean([x.value for x in flatten_counter(sizes)]))
         #return avg_sizes / (3 * (len(FlowerSizes) - 1))
-        return len(sizes) / (len(FlowerSizes)+len(FlowerColors)+len(FlowerTypes))
+        return self.sizeWeight*len(sizes) / len(FlowerSizes)
 
     def receive_feedback(self, feedback):
         """

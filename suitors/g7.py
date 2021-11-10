@@ -218,8 +218,7 @@ class Suitor(BaseSuitor):
                 score_Dict[i] = highest
             
             score_Dict = dict(sorted(score_Dict.items(), key=lambda item: item[1], reverse=True))
-            print("LAST ROUND")
-            print(score_Dict)
+            
             return list(map(lambda recipient_id: self._prepare_bouquet_last_round(remaining_flowers, recipient_id), score_Dict))
                 
         # Every day in between
@@ -273,8 +272,7 @@ class Suitor(BaseSuitor):
                 bouq[f] += 1
             else:
                 bouq[f] = 1
-        print("***BOUQ SIZE***", self.num_pref)
-        print("***BOUQUET***", bouq)
+        
         return Bouquet(bouq)
 
     def score_num(self, count: int):

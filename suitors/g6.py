@@ -122,7 +122,7 @@ class Suitor(BaseSuitor):
                     self.arrangement_hist[i].append(self.arrangement_hist[i][-1])
                     continue
 
-            if self.curr_day > int(self.days * 0.3): # giving bouquet using best guess from Linear Regression
+            if self.curr_day != 0 and self.curr_day > int(self.days * 0.3): # giving bouquet using best guess from Linear Regression
                 # getting all valid flower combinations for each person -- so know best bouquet is valid
                 all_possible_bouquets_arr = self._get_all_possible_bouquets_arr(remaining_flowers)
                 all_possible_bouquets_nparr = np.array(all_possible_bouquets_arr)

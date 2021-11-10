@@ -103,7 +103,7 @@ class Suitor(BaseSuitor):
                             remaining_flowers[k] -= v
                             assert remaining_flowers[k] >= 0
 
-                        break
+                        continue
                 else: # not last day so give empty bouquet to save flowers since already know bouquet is correct
                     bouquets.append(dict()) # give empty
 

@@ -8,6 +8,7 @@ from copy import deepcopy
 import random
 from collections import defaultdict, Counter
 from itertools import combinations, chain
+import math
 
 """
 class FlowerSizes(Enum):
@@ -334,7 +335,7 @@ class Suitor(BaseSuitor):
             guess = guessed_counts[unit] if unit in guessed_counts else 0
             target = target_counts[unit] if unit in target_counts else 0
             d += abs(target - guess)
-        return d
+        return d/2 if d!=0 and d!=1 else d
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """

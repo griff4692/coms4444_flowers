@@ -195,8 +195,24 @@ class Suitor(BaseSuitor):
 
         # Last day: best bouquet
         elif(self.days_remaining == self.days):
-            return list(map(lambda recipient_id: self._prepare_bouquet_last_round(remaining_flowers, recipient_id), recipient_ids))
+            score_Dict = {}
+            all_ids = np.arange(self.num_suitors)
+            recipient_ids = all_ids[all_ids != self.suitor_id]
             
+            for i in recipient_ids:
+                bouqs = self.bouq_Dict[i]
+                highest = 0
+                for bouq in bouqs:
+                    score_prio = bouq[1] * (self.num_suitors - bouq[2])
+                    if score_prio > highest:
+                        highest = score_prio
+                score_Dict[i] = highest
+            
+            score_Dict = dict(sorted(score_Dict.items(), key=lambda item: item[1], reverse=True))
+            print("LAST ROUND")
+            print(score_Dict)
+            return list(map(lambda recipient_id: self._prepare_bouquet_last_round(remaining_flowers, recipient_id), score_Dict))
+                
         # Every day in between
         else:
             # Increment days_remaining

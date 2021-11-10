@@ -100,6 +100,7 @@ class Suitor(BaseSuitor):
             return best_fit[i][1]
         best_fit = {}
         sequence = []
+        print(self.all_bouquets_by_element)
         for player in self.all_bouquets:
             sequence.append(player)
             best_fit[player]=(None,0)
@@ -108,7 +109,7 @@ class Suitor(BaseSuitor):
                 flowers = pair[0]
                 if score>best_fit[player][1]:
                     best_fit[player]  = (flowers,score)
-        print(best_fit)
+        print("best fit:  ",best_fit)
         sequence.sort(key=compare,reverse=True)
         give_out  = {}
         for player in sequence:
@@ -140,22 +141,6 @@ class Suitor(BaseSuitor):
             ret.append((self.suitor_id,player,give_out[player]))
         return ret
 
-
-        """
-        num_remaining = sum(remaining_flowers.values())
-        size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
-        if size > 0:
-            chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size, ), replace=False)
-            chosen_flower_counts = dict(Counter(chosen_flowers))
-            for k, v in chosen_flower_counts.items():
-                remaining_flowers[k] -= v
-                assert remaining_flowers[k] >= 0
-        else:
-            chosen_flower_counts = dict()
-        chosen_bouquet = Bouquet(chosen_flower_counts)
-        self.all_bouquets[recipient_id].append((chosen_bouquet, 0)) # store the bouquet we gave to each player in this round
-        return self.suitor_id, recipient_id, chosen_bouquet
-        """
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         print(flower_counts)

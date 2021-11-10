@@ -256,7 +256,7 @@ class Suitor(BaseSuitor):
         """
         # self.logger.info("in feedback")
         for r_id in self.recipient_ids:
-            rank, score = feedback[r_id]
+            rank, score, _ = feedback[r_id]
             self.bouquet_feedback[r_id]["color"][-1]["score"] = score
             self.bouquet_feedback[r_id]["color"][-1]["rank"] = rank
             self.bouquet_feedback[r_id]["size"][-1]["score"] = score

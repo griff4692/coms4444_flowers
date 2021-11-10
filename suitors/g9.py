@@ -97,20 +97,20 @@ class Suitor(BaseSuitor):
     
     def _prepare_bouquet_last_day(self, remaining_flowers):
         def compare(i):
-            return best_fit[i][1]
+            return best_fit[i][-1]
         best_fit = {}
         sequence = []
-        print(self.all_bouquets_by_element)
-        for player in self.all_bouquets:
+        print(list(self.all_bouquets_by_element[0][0]))
+        for player in self.all_bouquets_by_element:
             sequence.append(player)
             best_fit[player]=(None,0)
-            for pair in self.all_bouquets[player]:
-                score = pair[1]
-                flowers = pair[0]
-                if score>best_fit[player][1]:
-                    best_fit[player]  = (flowers,score)
+            for bouquet in self.all_bouquets_by_element[player]:
+                score = bouquet[-1]
+                if score>best_fit[player][-1]:
+                    best_fit[player]  = copy.deepcopy(bouquet)
         print("best fit:  ",best_fit)
         sequence.sort(key=compare,reverse=True)
+        print("sequence:  ", sequence)
         give_out  = {}
         for player in sequence:
             if player not in best_fit:
@@ -118,22 +118,36 @@ class Suitor(BaseSuitor):
             if best_fit[player][0]==None:
                 give_out[player] = Bouquet({})
                 continue
-            flowers = best_fit[player][0]
+            types = copy.deepcopy(best_fit[player][0])
+            colors = copy.deepcopy(best_fit[player][1])
+            sizes = copy.deepcopy(best_fit[player][2])
+            print(sizes)
             give = {}
-            for flower in flowers.flowers():
-                if flower in remaining_flowers and remaining_flowers[flower]>0:
-                    if flower not in give:
-                        give[flower]=0
-                    give[flower]+=1
-                    remaining_flowers[flower]-=1
-                else:
-                    for key in remaining_flowers:
-                        if remaining_flowers[key]>0:
-                            remaining_flowers[key]-=1
-                            if key not in give:
-                                give[key]=0
-                            give[key]+=1
-                            break
+            count = 0
+            for i in range(3):
+                requirement = 3-i
+                for flower in remaining_flowers:
+                    if remaining_flowers[flower]==0:
+                        continue
+                    score = 0
+                    if  flower.type in types and types[flower.type]>0:
+                        score +=1
+                    if  flower.size in sizes and sizes[flower.size]>0:
+                        score +=1
+                    if  flower.color in colors and colors[flower.color]>0:
+                        score +=1
+                    if score>=requirement and count<12:
+                        count+=1
+                        if flower.type in types and types[flower.type] > 0:
+                            types[flower.type] -= 1
+                        if flower.color in colors and colors[flower.color] > 0:
+                            colors[flower.color] -= 1
+                        if flower.size in sizes and sizes[flower.size] > 0:
+                            sizes[flower.size] -= 1
+                        remaining_flowers[flower] -= 1
+                        if flower not in give:
+                            give[flower]=0
+                        give[flower]+=1
             give_out[player]  = copy.deepcopy(Bouquet(give))
         print(give_out)
         ret = []

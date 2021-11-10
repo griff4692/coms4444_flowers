@@ -100,7 +100,7 @@ class Suitor(BaseSuitor):
             return best_fit[i][-1]
         best_fit = {}
         sequence = []
-        print(list(self.all_bouquets_by_element[0][0]))
+        #print(list(self.all_bouquets_by_element[0][0]))
         for player in self.all_bouquets_by_element:
             sequence.append(player)
             best_fit[player]=(None,0)
@@ -108,9 +108,9 @@ class Suitor(BaseSuitor):
                 score = bouquet[-1]
                 if score>best_fit[player][-1]:
                     best_fit[player]  = copy.deepcopy(bouquet)
-        print("best fit:  ",best_fit)
+        #print("best fit:  ",best_fit)
         sequence.sort(key=compare,reverse=True)
-        print("sequence:  ", sequence)
+        #print("sequence:  ", sequence)
         give_out  = {}
         for player in sequence:
             if player not in best_fit:
@@ -121,7 +121,7 @@ class Suitor(BaseSuitor):
             types = copy.deepcopy(best_fit[player][0])
             colors = copy.deepcopy(best_fit[player][1])
             sizes = copy.deepcopy(best_fit[player][2])
-            print(sizes)
+            #print(sizes)
             give = {}
             count = 0
             for i in range(3):
@@ -149,7 +149,7 @@ class Suitor(BaseSuitor):
                             give[flower]=0
                         give[flower]+=1
             give_out[player]  = copy.deepcopy(Bouquet(give))
-        print(give_out)
+        #print(give_out)
         ret = []
         for player in give_out:
             ret.append((self.suitor_id,player,give_out[player]))
@@ -157,7 +157,7 @@ class Suitor(BaseSuitor):
 
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
-        print(flower_counts)
+        #print(flower_counts)
         """
         :param flower_counts: flowers and associated counts for for available flowers
         :return: list of tuples of (self.suitor_id, recipient_id, chosen_bouquet)

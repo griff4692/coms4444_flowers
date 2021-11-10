@@ -111,18 +111,18 @@ class Suitor(BaseSuitor):
             return fb.score
 
         self.feedback.sort(key=key_func, reverse=True)
-        final_bouquets = []
+        final_bouquets = {n: (self.suitor_id, n, Bouquet({})) for n in range(self.num_suitors)}
+        del final_bouquets[self.suitor_id]
         already_prepared = set()
         for fb in self.feedback:
             fb: SuitorFeedback = fb
             if fb.suitor in already_prepared:
                 continue
             if self.can_construct(fb.bouquet, flower_counts):
-                final_bouquets.append((self.suitor_id, fb.suitor, fb.bouquet))
+                final_bouquets[fb.suitor] = (self.suitor_id, fb.suitor, fb.bouquet)
                 flower_counts = self.reduce_flowers(fb.bouquet, flower_counts)
                 already_prepared.add(fb.suitor)
-
-        return final_bouquets
+        return list(final_bouquets.values())
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]) -> List[Tuple[int, int, Bouquet]]:
         """

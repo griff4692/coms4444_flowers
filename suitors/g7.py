@@ -135,7 +135,7 @@ class Suitor(BaseSuitor):
         sizes = np.argwhere(self.weights[recipient_id]['number'] == np.amax(self.weights[recipient_id]['number']))
         sizes.flatten().tolist() # if you want it as a list
         size0 = max(sizes)
-        print(self.weights[recipient_id])
+        #print(self.weights[recipient_id])
         size = size0[0]
         if size > 0:
             scored_flowers = []

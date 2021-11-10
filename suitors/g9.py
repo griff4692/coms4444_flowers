@@ -286,7 +286,6 @@ class Suitor(BaseSuitor):
         :param feedback:
         :return: nothing
         """
-        print(self.suitor_id)
         final_scores_tuples = [] # a list of tuples (final_score, suitor_num, bouquet)
         final_scores_tuples_above_median = [] # a list of tuples (final_score, suitor_num, bouquet)
         final_scores_tuples_below_median = [] # a list of tuples (final_score, suitor_num, bouquet)
@@ -296,7 +295,7 @@ class Suitor(BaseSuitor):
                 scores.append(score)
         median_score = statistics.median(scores)
         
-        for suitor_num, (rank, score, _) in enumerate(feedback):
+        for suitor_num, (rank, score, number_players_with_same_rank) in enumerate(feedback):
             if suitor_num != self.suitor_id: # we shouldn't add ourselves to the list of players for whom we will create a bouquet
                 # TODO: update final_score claculation to 
                 # 1) give more weight to ranking
@@ -308,7 +307,8 @@ class Suitor(BaseSuitor):
                 new_bouquet_sizes = self.all_bouquets_by_element[suitor_num][len(self.all_bouquets_by_element[suitor_num])-1][2]
                 self.all_bouquets[suitor_num][len(self.all_bouquets[suitor_num])-1] = (new_bouquet, score) # update score in the dictionary
                 self.all_bouquets_by_element[suitor_num][len(self.all_bouquets_by_element[suitor_num])-1] = (new_bouquet_types, new_bouquet_colors, new_bouquet_sizes, score)
-                new_rank = rank/(self.num_suitors - 1) # normalize rankings so that they are in the [0, 1] range
+                rank_after_ties = (rank + number_players_with_same_rank)/2
+                new_rank = rank_after_ties/(self.num_suitors - 1) # normalize rankings so that they are in the [0, 1] range
                 final_score = score/(new_rank*new_rank) # used score / rank^2 --> as rank gets worse, the final_score will exponentially get worse
                 if self.checkScoreRange(score, median_score) == 1:
                     final_scores_tuples_above_median.append((final_score, suitor_num, new_bouquet))

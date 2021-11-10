@@ -302,7 +302,7 @@ class Suitor(BaseSuitor):
         for recipient_id in range(len(feedback)):
             if recipient_id == self.suitor_id:
                 continue
-            rank, score = feedback[recipient_id]
+            rank, score, _ = feedback[recipient_id]
             flower_sent = self.bouquet_history[recipient_id][-1]
             # flower_tuple = []
             # for flower, count in flower_sent.items():

@@ -267,12 +267,12 @@ class Suitor(BaseSuitor):
         final_scores_tuples_above_median = [] # a list of tuples (final_score, suitor_num, bouquet)
         final_scores_tuples_below_median = [] # a list of tuples (final_score, suitor_num, bouquet)
         scores = []
-        for suitor_num, (rank, score) in enumerate(feedback):
+        for suitor_num, (rank, score, _) in enumerate(feedback):
             if suitor_num != self.suitor_id:
                 scores.append(score)
         median_score = statistics.median(scores)
         
-        for suitor_num, (rank, score) in enumerate(feedback):
+        for suitor_num, (rank, score, _) in enumerate(feedback):
             if suitor_num != self.suitor_id: # we shouldn't add ourselves to the list of players for whom we will create a bouquet
                 # TODO: update final_score claculation to 
                 # 1) give more weight to ranking

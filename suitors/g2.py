@@ -44,9 +44,10 @@ class Suitor(BaseSuitor):
         self.other_suitors = []
         self.bouquets_given = defaultdict(list)
         self.turn = 1
-        self.learning_rate = 10
+        self.learning_rate = 10 + (90 / days)
         self.exploration_alpha = 0.3
         self.exploration_alpha_decay = self.exploration_alpha / days
+        self.num_suitors = num_suitors - 1
 
         self.num_flowers_in_bouquet = self.get_random_num_flowers(seed=2)
         self.our_favorite_bouquet = self.get_random_bouquet(num_flowers = self.num_flowers_in_bouquet)
@@ -135,9 +136,11 @@ class Suitor(BaseSuitor):
                 
                 if best_flower == None:
                     break
-                else:
+                elif best_score > 0:
                     bouquet[best_flower] += 1
                     copy_flower_counts[str(best_flower)] -= 1
+                else:
+                    break
 
         return (self.suitor_id, group_id, Bouquet(bouquet)), copy_flower_counts
 
@@ -153,6 +156,9 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
+        min_groups_to_give = 3 if self.num_suitors > 4 else 2
+        groups_to_give = max(min_groups_to_give, self.num_suitors - (self.num_suitors - min_groups_to_give) * (self.turn / self.days))
+        flower_for_each_group = int(len(flower_counts) // (groups_to_give))
         bouquets = []
 
         copy_flower_counts = {}
@@ -167,9 +173,9 @@ class Suitor(BaseSuitor):
         for o_id in self.other_suitors:
             r = random.uniform(0,1)
             if r < self.exploration_alpha or self.turn == 1:
-                b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts, rand=True)
+                b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts, count = flower_for_each_group, rand=True)
             else: 
-                b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts) 
+                b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts, count = flower_for_each_group) 
             self.bouquets_given[o_id].append([b[2]])
             bouquets.append(b)
 
@@ -266,9 +272,6 @@ class Suitor(BaseSuitor):
 
     def adjust_scoring_function(self, prev_s, curr_s, o_id, bouquet):
         how_much = (curr_s - prev_s) * self.learning_rate
-
-        if how_much > 0:
-            return
 
         for size, value in bouquet.sizes.items():
             self.scoring_parameters[o_id][size] += how_much * value

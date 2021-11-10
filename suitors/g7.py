@@ -209,13 +209,19 @@ class Suitor(BaseSuitor):
             all_ids = np.arange(self.num_suitors)
             recipient_ids = all_ids[all_ids != self.suitor_id]
             for i in recipient_ids:
+                already_know = 0
                 bouqs = self.bouq_Dict[i]
                 highest = 0
                 for bouq in bouqs:
+                    if (bouq[1]==1.0):
+                        already_know = 1
                     score_prio = bouq[1] * (self.num_suitors - bouq[2])
                     if score_prio > highest:
                         highest = score_prio
-                score_Dict[i] = highest
+                if (already_know):
+                    score_Dict[i] = 0 #do not care about this player since his optimal weights have already been configured
+                else:
+                    score_Dict[i] = highest
             
             score_Dict = dict(sorted(score_Dict.items(), key=lambda item: item[1], reverse=True))
 

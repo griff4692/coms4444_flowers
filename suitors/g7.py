@@ -421,7 +421,8 @@ class Suitor(BaseSuitor):
             for att in flower_dict.keys():
                 if att == 'number':
                     estimate += self.weights[id][att][flower_dict[att] - 1] * flower_dict[att]
-                    estimate /= flower_dict[att]
+                    if (flower_dict[att] != 0):
+                        estimate /= flower_dict[att]
                 else:
                     for sp in flower_dict[att].keys():
                         estimate += (self.weights[id][att][sp] * flower_dict[att][sp])

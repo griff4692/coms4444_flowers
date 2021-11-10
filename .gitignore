@@ -2,3 +2,6 @@
 __pycache__
 *.log
 .vscode
+config.csv
+venv
+.gitignore

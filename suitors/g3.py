@@ -14,7 +14,7 @@ from math import floor, inf
 ALL_FEATURES = list(FlowerSizes) + list(FlowerColors) + list(FlowerTypes)
 ESTIMATE_SIZE = 3
 Feature = Union[FlowerTypes, FlowerColors, FlowerSizes]
-
+model, X, Y = {}, {}, {}
 
 def l2b(l: List[Flower]) -> Bouquet:
     return Bouquet(Counter(l))
@@ -44,7 +44,7 @@ def bouquet_to_dictionary(bouquet, feature=None):
 
 def best_given_bouquet(bouquet_feedback) :
     #determine the best score so far
-    print("inside best")
+    #print("inside best")
     score = -inf
     index = -1
     for i in range(len(bouquet_feedback["color"])) :
@@ -67,59 +67,101 @@ def best_given_bouquet(bouquet_feedback) :
     del type_weights["score"]
     del type_weights["rank"]
 
-    return estimate_flowers_in_bouquets(color_weights,size_weights,type_weights)
+    return {"color" : color_weights, "size" : size_weights, "type" : type_weights}
 
-def estimate_flowers_in_bouquets(color_weights, size_weights, type_weights):
+def estimate_flowers_in_bouquets(color_weights, size_weights, type_weights, flower_counts):
+    total_flowers = sum(color_weights.values()) - 2
+    total_flowers = max(total_flowers, 2)
+    print("total ",total_flowers)
     flowers = defaultdict(int)
     if color_weights and size_weights and type_weights:
         for c, s, t in zip(flatten_counter(color_weights), flatten_counter(size_weights),
                            flatten_counter(type_weights)):
-            flowers[Flower(s, c, t)] += 1
+            f = Flower(s, c, t)
+            if flower_counts.get(f) and flower_counts[f] > 0:
+                flower_counts[f] -= 1
+                flowers[f] += 1
+                total_flowers -= 1
+
+    '''
+    for f in flower_counts :
+        print(f)
+        if total_flowers == 0 :
+            break
+        if flower_counts[f] > 0 :
+            total_flowers -= 1
+            flower_counts[f] -= 1
+            flowers[f] += 1
+    '''
+
     return flowers
 
 
-def learned_bouquets(bouquet_feedback, suitor):
+def decide_bouquet(flowers1, flowers2) :
+    testX = {}
+    global X
+    score_flowers2, score_flowers1 = 0.0, 0.0
+    for key in X:
+        X[key] = X[key].append([flowers1[key], flowers2[key]]).fillna(0)
+        testX[key] = X[key].tail(2)
+        score = model[key].predict(testX[key])
+        score_flowers1 += score[0]
+        score_flowers2 += score[1]
+    
+    if score_flowers2 > score_flowers1:
+        return flowers2
+
+    return flowers1
+
+def learned_bouquets(bouquet_feedback, suitor, flower_counts):
     res = []
+    global model
     for recipient in bouquet_feedback.keys():
+        model = {"color": LinearRegression(), "size": LinearRegression(), "type": LinearRegression()}
         color_weights = learned_weightage(bouquet_feedback[recipient], "color")
         size_weights = learned_weightage(bouquet_feedback[recipient], "size")
         type_weights = learned_weightage(bouquet_feedback[recipient], "type")
-
-        flowers = estimate_flowers_in_bouquets(color_weights, size_weights, type_weights)
-        if flowers :
-            res.append((suitor, recipient,Bouquet(flowers)))
-        else :
-            res.append((suitor, recipient,Bouquet(best_given_bouquet(bouquet_feedback[recipient]))))
+        flowers1 = {"color" : color_weights, "size" : size_weights, "type" : type_weights}
+        flowers2 = best_given_bouquet(bouquet_feedback[recipient])
+        flowers = decide_bouquet(flowers1, flowers2)
+        res.append((suitor, recipient,Bouquet(estimate_flowers_in_bouquets(flowers["color"], flowers["size"], flowers["type"], flower_counts))))
             
     return res
 
 
 def learned_weightage(bouquet_feedback, factor):
-    flower_for_each_round = 7
+    flower_for_each_round = random.randrange(4, 8)
     df = pd.DataFrame(bouquet_feedback[factor]).fillna(0)
     df = df.drop("rank", 1)
-    Y = df["score"]
-    X = df.drop("score", 1)
-    cols = X.columns
+    global X
+    global Y
+    Y[factor] = df["score"]
+    X[factor] = df.drop("score", 1)
+    cols = X[factor].columns
     if len(cols) == 0:
         return {}
     elif len(cols) == 1:
         return {cols[0]: flower_for_each_round}
 
-    model = LinearRegression()
-    model.fit(X, Y)
-    coefficients = model.coef_
+    model[factor].fit(X[factor], Y[factor])
+    coefficients = model[factor].coef_
 
     # only consider positive elements in bouquet
     res = {}
     temp_sum = 0.0
+    max_neg = inf
     for i in range(len(coefficients)):
         c = coefficients[i]
         if c > 0:
             res[cols[i]] = c
-            temp_sum += c
+        max_neg = min(max_neg, c)
 
-    if temp_sum == 0:
+    for key in res.keys() :
+        res[key] -= max_neg
+        temp_sum += res[key]
+
+    if temp_sum == 0.0:
+        print(temp_sum)
         return res
 
     weight = flower_for_each_round / temp_sum
@@ -184,8 +226,11 @@ class Suitor(BaseSuitor):
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
         self.day_count += 1
-        if self.day_count == self.days:
-            return learned_bouquets(self.bouquet_feedback, self.suitor_id)
+        if self.day_count >= self.days:
+            print("final day bouquets")
+            bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts)
+            print(bouquets)
+            return bouquets
 
         send = dict()
         estimation = dict()

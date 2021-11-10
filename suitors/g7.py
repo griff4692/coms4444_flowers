@@ -89,7 +89,11 @@ class Suitor(BaseSuitor):
     # "smart" building
     def _prepare_bouquet_inter_rounds(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
-        size = np.argmax(self.weights[recipient_id]['number'])
+        sizes = np.argwhere(self.weights[recipient_id]['number'] == np.amax(self.weights[recipient_id]['number']))
+        sizes.flatten().tolist() # if you want it as a list
+        size0 = max(sizes)
+        size = size0[0]
+        #size = np.argmax(self.weights[recipient_id]['number'])
         flip = np.random.randint(0, 1)
         if flip == 0:
             size -= 1
@@ -126,8 +130,13 @@ class Suitor(BaseSuitor):
 
     def _prepare_bouquet_last_round(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
-        size = np.argmax(self.weights[recipient_id]['number'])
-
+        #size = np.argmax(self.weights[recipient_id]['number'])
+        #when multiple number weights have the same value argmax returns the smallest index which is usually 0. I changed it to return the maximum index
+        sizes = np.argwhere(self.weights[recipient_id]['number'] == np.amax(self.weights[recipient_id]['number']))
+        sizes.flatten().tolist() # if you want it as a list
+        size0 = max(sizes)
+        print(self.weights[recipient_id])
+        size = size0[0]
         if size > 0:
             scored_flowers = []
             for flower in remaining_flowers.keys():

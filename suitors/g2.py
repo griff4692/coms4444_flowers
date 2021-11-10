@@ -6,7 +6,8 @@ from suitors.base import BaseSuitor
 import numpy as np
 from copy import deepcopy
 import random
-from collections import defaultdict
+from collections import defaultdict, Counter
+from itertools import combinations, chain
 
 """
 class FlowerSizes(Enum):
@@ -81,32 +82,93 @@ class Suitor(BaseSuitor):
                     bouquet[key] += 1
                     copy_flower_counts[str(key)] -= 1
                     break
+        
         elif last:
-            can_best = True
+            #can_best = True
             best_score = float('-inf')
             best_bouquet = None
-            flower_counts = {}
+            #flower_counts = {}
+            index = 0
             for p in prev_bouquets:
-                score = p[1]
+                score = p[2]
                 b = p[0]
-                if score > best_score:
+                if score >= best_score:
                     best_score = score
                     best_bouquet = b
             if best_bouquet != None:
                 for flower in best_bouquet.flowers():
                     if str(flower) in copy_flower_counts:
-                        if copy_flower_counts[str(flower)] <= 0:
-                            can_best = False
-                            break
-                        bouquet[flower] += 1
-                        copy_flower_counts[str(flower)] -= 1
-                        if str(flower) in flower_counts:
-                            flower_counts[str(flower)] += 1
+                        if copy_flower_counts[str(flower)] > 0:
+                            bouquet[flower] += 1
+                            copy_flower_counts[str(flower)] -= 1
+                            continue
+                    one = 0
+                    index = 0
+                    picked = False
+                    for flow in flowers:
+                        similarity = 0
+                        if flow[0].type == flower.type:
+                            similarity +=1
+                        if flow[0].size == flower.size:
+                            similarity +=1
+                        if flow[0].color == flower.color:
+                            similarity +=1
+                        if similarity == 2:
+                            if copy_flower_counts[str(flow[0])] > 0:
+                                bouquet[flow[0]] += 1
+                                copy_flower_counts[str(flow[0])] -= 1
+                                picked = True
+                                break
+                        if similarity == 1:
+                            if copy_flower_counts[str(flow[0])] > 0:
+                                one = index
+                        
+                        index += 1
+
+                    if not picked:
+                        flow = flowers[one][0]
+                        bouquet[flow] += 1
+                        copy_flower_counts[str(flow)] -= 1
+                """
+                flows = []
+                for flower in flowers:
+                    for i in range(flower[1]):
+                        flows.append(flower[0])
+                print(len(flows))
+                types = defaultdict(int, best_bouquet.types)
+                sizes = defaultdict(int, best_bouquet.sizes)
+                colors = defaultdict(int, best_bouquet.colors)
+                combos = combinations(flows, len(best_bouquet))
+                max_bouquet = None
+                min_dist = float('inf')
+                index = 0
+                for c in combos:
+                    #print(index)
+                    index +=1
+                    distance = 0
+                    b = Bouquet(Counter(c))
+                    for size in FlowerSizes:
+                        if size not in b.sizes:
+                            distance += sizes[size]
                         else:
-                            flower_counts[str(flower)] = 1
-                    else:
-                        can_best = False
-                        break
+                            distance += abs(sizes[size] - b.sizes[size])
+                    for type in FlowerTypes:
+                        if type not in b.types:
+                            distance += types[type]
+                        else:
+                            distance += abs(types[type] - b.types[type])
+                    for color in FlowerColors:
+                        if color not in b.colors:
+                            distance += colors[color]
+                        else:
+                            distance += abs(colors[color] - b.colors[color])
+                    if distance < min_dist:
+                        max_bouquet = c
+                        min_dist = distance
+                for f in max_bouquet:
+                    bouquet[f] += 1
+                    copy_flower_counts[str(f)] -= 1
+                can_best = True
             else:
                 can_best = False
             if not can_best:
@@ -135,6 +197,7 @@ class Suitor(BaseSuitor):
                     else:
                         bouquet[best_flower] += 1
                         copy_flower_counts[str(best_flower)] -= 1
+                        """
         else:
             for _ in range(count):
                 best_flower = None

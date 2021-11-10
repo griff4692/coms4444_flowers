@@ -1,6 +1,6 @@
 import random
 from typing import Dict, List
-
+from math import exp, log, factorial
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, MAX_BOUQUET_SIZE, \
     get_all_possible_flowers, sample_n_random_flowers, get_random_flower
 from suitors.base import BaseSuitor
@@ -28,9 +28,11 @@ class Suitor(BaseSuitor):
 
         self.color_map = {0: "W", 1: "Y", 2: "R", 3: "P", 4: "O", 5: "B"}
 
-        # TODO: define the percentage, the relationship between percentage, days and num_suitors
-        self.percentage = 0.1
-        # self.percentage = 2 / (days - 1) * (num_suitors - 1)
+        if num_suitors > 2:
+            exponent = log(1 - 1 / (num_suitors - 1)) / (days - 1)
+            self.percentage = 1 - exp(exponent)
+        else:
+            self.percentage = 1 / (days - 1)
 
         # step 3: choose our one score flowers from the color probability table
         # score_one_flowers_for_us: the score of our choices of colors to be 1.0
@@ -55,8 +57,19 @@ class Suitor(BaseSuitor):
         # remember all the recipients' score so that we can decide which flower we can give at the last day
         self.recipients_all_score = []
 
+        # array representing which suitors *potentially* have our defense strategy
+        # -1 = Does not have our strat
+        #  0 = Unknown
+        #  1 = Has our strat
+        self.has_our_strat = [0] * num_suitors
+        # counter for how many times our strat has been checked
+        self.our_strat_count = [0] * num_suitors
+        # max times to check if a suitor has our strat before saying they actually do
+        self.our_strat_max_count = 2 # arbitrarily chosen
+
     # choose one score bouquet randomly from the flowerColor.probability until reached the percentage
     def choose_one_score_bouquet_for_ourselves(self, probability_table: Dict):
+        diff = self.percentage * pow(10, -5)
         remain_probability = self.percentage
 
         probability_table_list = defaultdict(list)
@@ -65,7 +78,7 @@ class Suitor(BaseSuitor):
 
         while remain_probability > 0:
             # TODO: think of a way to break the remain_probability, what's the exact value, here I just assume 10^-5
-            if remain_probability < pow(10, -5):
+            if remain_probability < diff:
                 break
             # we don't consider the empty flowers to be score 1
             size = int(np.random.randint(1, MAX_BOUQUET_SIZE + 1))
@@ -78,7 +91,42 @@ class Suitor(BaseSuitor):
     def _prepare_bouquet(self, remaining_flowers, recipient_id):
         # TODO: if we got 1.0 score from that group before, skip it or we should keep guessing,
         #  because we may not get that 1 score in the final round given by the flowers
-        if int(self.recipients_largest_score_[recipient_id]) == 1:
+
+        if self.has_our_strat[recipient_id] == 0 and self.our_strat_count[recipient_id] != 0:
+            flowers_sent = self.bouquet_history[recipient_id][-1]
+
+            # print('\n\n\n\nThis is what im trying to color copy')
+            # print(*flowers_sent)
+
+            colors_count = [0]*6
+            for f,i in flowers_sent.items():
+                colors_count[f.color.value] += i
+
+            rem_flowers_list = flatten_counter(remaining_flowers)
+            # essentially choose a random bouquet of same color count
+            random.shuffle(rem_flowers_list)
+
+            # print('**********************')
+            # print(*rem_flowers_list)
+            # print('**********************')
+
+            # print(colors_count)
+
+            chosen_flower_counts = dict()
+            for f in rem_flowers_list:
+                if colors_count[f.color.value] > 0:
+                    if f not in chosen_flower_counts:
+                        chosen_flower_counts[f] = 0
+                    chosen_flower_counts[f] += 1
+                    colors_count[f.color.value] -= 1
+
+            # print('\n this is what i made')
+            # print(*chosen_flower_counts)  
+            # input()
+
+            self.bouquet_history[recipient_id].append(chosen_flower_counts)
+
+        elif int(self.recipients_largest_score_[recipient_id]) == 1:
             chosen_flower_counts = dict()
         else:
             # randomly choosing the flowers
@@ -166,7 +214,16 @@ class Suitor(BaseSuitor):
         if self.current_day == self.days:
             return self.prepare_for_marry_day(remaining_flowers, recipient_ids)
 
-        result = list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
+        result = []
+        suitors = set()
+        for i in range(self.num_suitors):
+            if i != self.suitor_id and self.has_our_strat[i] == 0 and self.our_strat_count[i] != 0:
+                result.append(self._prepare_bouquet(remaining_flowers, i))
+                suitors.add(i)
+        for i in range(self.num_suitors):
+            if i != self.suitor_id and i not in suitors:
+                result.append(self._prepare_bouquet(remaining_flowers, i))
+        # result = list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
         return result
 
     def zero_score_bouquet(self):
@@ -245,7 +302,7 @@ class Suitor(BaseSuitor):
         for recipient_id in range(len(feedback)):
             if recipient_id == self.suitor_id:
                 continue
-            rank, score = feedback[recipient_id]
+            rank, score, _ = feedback[recipient_id]
             flower_sent = self.bouquet_history[recipient_id][-1]
             # flower_tuple = []
             # for flower, count in flower_sent.items():
@@ -255,6 +312,27 @@ class Suitor(BaseSuitor):
             self.recipients_largest_score_[recipient_id] = max(self.recipients_largest_score_[recipient_id], score)
             self.recipients_all_score.append((recipient_id, score))
 
+            if score == 1 and self.has_our_strat[recipient_id] == 0:
+
+                # print("\n\n\n")
+                # print(*flower_sent)
+                # input(f'{self.suitor_id} okok: {recipient_id} {score} {self.current_day}')
+
+                # found score 1 and don't know if suitor has our strat yet
+
+                self.our_strat_count[recipient_id] += 1
+                if self.our_strat_count[recipient_id] == self.our_strat_max_count:
+                    self.has_our_strat[recipient_id] = 1
+                    # input(f'{self.suitor_id} : {recipient_id} has our strat!***********')
+
+            elif score != 1 and self.has_our_strat[recipient_id] == 0 and self.our_strat_count[recipient_id] != 0:
+                # was checking if this suitor has our strat, but found a score != 1, they def do not have our strat
+
+                self.has_our_strat[recipient_id] = -1
+
+                # print("\n\n\n")
+                # print(*flower_sent)
+                # input(f'{self.suitor_id} nope: {recipient_id} {score} {self.current_day}')
 
 ''' usage of BouquetSimulator:
 bouquet = BouquetSimulator(9) -> number of players
@@ -264,18 +342,18 @@ bouquet.simulate_give_flowers(times)
 
 
 class BouquetSimulator:
-    def __init__(self, players: int):
-        self.people = players
-        self.total_flowers = 6 * (self.people - 1)
-        self.max_flower = MAX_BOUQUET_SIZE
-        self.probability = {i: 0 for i in range(self.max_flower + 1)}
+    def __init__(self, num_players: int):
+        self.num_players = num_players
+        self.total_flowers = 6 * (self.num_players - 1)
+        self.max_bouquet_size = MAX_BOUQUET_SIZE
+        self.probability = {i: 0 for i in range(self.max_bouquet_size + 1)}
 
     def simulate_give_flowers(self, times: int):
         for _ in range(times):
             remain = self.total_flowers
-            count = self.people - 1
+            count = self.num_players - 1
             while remain > 0 and count > 0:
-                size = int(np.random.randint(0, min(self.max_flower, remain) + 1))
+                size = int(np.random.randint(0, min(self.max_bouquet_size, remain) + 1))
                 count -= 1
                 remain -= size
                 self.probability[size] += 1
@@ -284,7 +362,7 @@ class BouquetSimulator:
                 self.probability[0] += count
 
         for key, value in self.probability.items():
-            self.probability[key] = value / (times * (self.people - 1))
+            self.probability[key] = value / (times * (self.num_players - 1))
 
 
 ''' usage of FlowerColorSimulator:
@@ -305,31 +383,56 @@ class FlowerColorSimulator:
         self.color_map = {0: "W", 1: "Y", 2: "R", 3: "P", 4: "O", 5: "B"}
         colors = sorted(list(self.color_map.values()))
 
+        """
+        Exp: Size of bouquet = 6 
+        combination = {W, W, Y, Y, R, R}
+        
+        Counts:
+            W: 2
+            Y: 2
+            R: 2
+        
+        Total number of combinations: 6!/(2! 2! 2!)
+        
+        Probability: 6!/(2! 2! 2!) * (1/6)^6
+        
+        In general:
+        
+        Probability = (n!/(a!b!c!...z!)) * (1/6)^n where n is the size of bouquet
+        
+        """
+
         self.probability = defaultdict(dict)
         for num in self.num_flowers_to_sample:
             for c in combinations_with_replacement(colors, num):
-                self.probability[num][c] = 0
+                counts = Counter(c)
+                unique_colors = counts.keys()
+                denominator = 1
+                for color in unique_colors:
+                    denominator *= factorial(counts[color])
+                self.probability[num][c] = pow(1/6, num) * factorial(num)/denominator if num != 0 else 0.1152 # Hard code the probability for empty bouquet
+                # self.probability[num][c] = 0
 
     def simulate_possibilities(self, times: int, bouquet_probability: Dict):
         equal_probability = False
         if len(bouquet_probability) == 0:
             equal_probability = True
 
-        for num in self.num_flowers_to_sample:
-            for _ in range(times):
-                flowers_for_round = sample_n_random_flowers(self.possible_flowers, num)
-                flower_list = []
-                for flower, value in flowers_for_round.items():
-                    flower_list.extend([self.color_map[flower.color.value]] * value)
-
-                flower_list.sort()
-                self.probability[num][tuple(flower_list)] += 1
-
-        for key in self.probability.keys():
-            for value, count in self.probability[key].items():
-                self.probability[key][value] = count / times
-                if not equal_probability:
-                    self.probability[key][value] *= bouquet_probability[key]
+        # for num in self.num_flowers_to_sample:
+        #     for _ in range(times):
+        #         flowers_for_round = sample_n_random_flowers(self.possible_flowers, num)
+        #         flower_list = []
+        #         for flower, value in flowers_for_round.items():
+        #             flower_list.extend([self.color_map[flower.color.value]] * value)
+        #
+        #         flower_list.sort()
+        #         self.probability[num][tuple(flower_list)] += 1
+        #
+        # for key in self.probability.keys():
+        #     for value, count in self.probability[key].items():
+        #         self.probability[key][value] = count / times
+        #         if not equal_probability:
+        #             self.probability[key][value] *= bouquet_probability[key]
 
         if not equal_probability:
             all_probability = 0
@@ -341,3 +444,5 @@ class FlowerColorSimulator:
                     self.probability[key][value] = count / all_probability
 
         # self.probability = dict(sorted(self.probability.items(), key=lambda item: -item[1]))
+
+

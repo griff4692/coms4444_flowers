@@ -15,7 +15,6 @@ ALL_FEATURES = list(FlowerSizes) + list(FlowerColors) + list(FlowerTypes)
 ESTIMATE_SIZE = 3
 Feature = Union[FlowerTypes, FlowerColors, FlowerSizes]
 
-
 def l2b(l: List[Flower]) -> Bouquet:
     return Bouquet(Counter(l))
 
@@ -52,15 +51,17 @@ def create_bouquets(flower_for_this_round, color_weights, size_weights, type_wei
     return Bouquet(flowers)
 
 
-def learned_bouquets(bouquet_feedback, suitor):
+def learned_bouquets(bouquet_feedback, suitor, flower_counts):
     res = []
     for recipient in bouquet_feedback.keys():
         color_weights = learned_weightage(bouquet_feedback[recipient], "color")
         size_weights = learned_weightage(bouquet_feedback[recipient], "size")
         type_weights = learned_weightage(bouquet_feedback[recipient], "type")
+        
+        offered_bouquet = create_bouquets(sum(color_weights.values()), color_weights, size_weights, type_weights)
+        final_bouquet = generate_final_bouquet(offered_bouquet, flower_counts)
 
-        res.append((suitor, recipient,
-                    create_bouquets(sum(color_weights.values()), color_weights, size_weights, type_weights)))
+        res.append((suitor, recipient, final_bouquet))
     return res
 
 
@@ -110,6 +111,19 @@ def arrange_random(flower_counts: Dict[Flower, int]):
     return flower_counts, l2b(res)
 
 
+def generate_final_bouquet(bouquet, flower_counts: Dict[Flower, int]):
+    final_bouquet = {}
+    for flower, count in bouquet.arrangement.items():
+        if flower in flower_counts.keys():
+            if flower in final_bouquet.keys():
+                final_bouquet[flower] = final_bouquet[flower] +1
+            else:
+                final_bouquet[flower] = 1
+        else:
+            return arrange_random(flower_counts) 
+
+
+
 class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
         """
@@ -155,7 +169,7 @@ class Suitor(BaseSuitor):
         """
         self.day_count += 1
         if self.day_count == self.days:
-            return learned_bouquets(self.bouquet_feedback, self.suitor_id)
+            return learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts)
 
         send = dict()
         estimation = dict()

@@ -132,6 +132,7 @@ class FlowerMarriageGame:
         offers_flat = list(itertools.chain(*offers))
         for (suitor_from, suitor_to, bouquet) in offers_flat:
             assert suitor_from != suitor_to
+            bouquet = Bouquet({}) if bouquet is None else bouquet
             self.bouquets[curr_round, suitor_from, suitor_to] = bouquet
             score = aggregate_score(self.suitors[suitor_to], bouquet)
             if score < 0 or score > 1:
@@ -152,6 +153,7 @@ class FlowerMarriageGame:
             tuple(zip(self.ranks[curr_round, i, :], self.scores[curr_round, i, :], self.ties[curr_round, i, :]))
         ), suitor_ids))
 
+        # self.bouquets[np.isnan(self.bouquets)] = Bouquet({})
         self.log_round(curr_round)
 
     def simulate_next_round(self):
@@ -203,7 +205,11 @@ def aggregate_score(suitor: BaseSuitor, bouquet: Bouquet):
     size_score = suitor.score_sizes(bouquet.sizes)
     type_score = suitor.score_types(bouquet.types)
     agg_score = color_score + size_score + type_score
-    assert 0 <= agg_score <= 1
+    # assert 0 <= agg_score <= 1
+    if agg_score < 0:
+        agg_score = 0
+    if agg_score > 1:
+        agg_score = 1
     return agg_score
 
 

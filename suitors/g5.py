@@ -1,6 +1,7 @@
 import collections
 import heapq
 import random
+import math
 from dataclasses import dataclass
 from typing import Dict, Tuple, List, Union
 
@@ -86,7 +87,7 @@ class Suitor(BaseSuitor):
         self.bad_color_enum = FlowerColors(bad_color_num)
 
         # New bouquet setup
-        self.n_flowers = 2
+        self.n_flowers = math.ceil(math.log(num_suitors * days) / math.log(8))
         self.ideal_bouquet: Bouquet = random_bouquet(self.n_flowers)
 
     @staticmethod
@@ -164,7 +165,7 @@ class Suitor(BaseSuitor):
                 matching -= c
         if matching <= 0:
             return 0.0
-        return max_score / (self.n_flowers - matching + 1)
+        return max_score / 2**(self.n_flowers - matching)
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """

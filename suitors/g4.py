@@ -116,9 +116,9 @@ class Suitor(BaseSuitor):
         for recipient in self.recipient_ids:
 
             assignments[recipient] = {
-                'fc_control': fc_control_options[recipient % len(self.recipient_ids)],
-                'ft_control': ft_control_options[recipient % len(self.recipient_ids)],
-                'fs_control': fs_control_options[recipient % len(self.recipient_ids)],
+                'fc_control': fc_control_options[recipient % len(fc_control_options)],
+                'ft_control': ft_control_options[recipient % len(ft_control_options)],
+                'fs_control': fs_control_options[recipient % len(fs_control_options)],
             }
 
         return assignments

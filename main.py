@@ -140,13 +140,13 @@ class FlowerMarriageGame:
                         f'Suitor {suitor.suitor_id} gave away atleast {offer_cts[flower]} {flower} flowers. '
                         f'There are only {flowers_for_round[flower]} available at the market.')
                     break
-            if not is_more_than_market or is_hallucinated:
+            if is_more_than_market or is_hallucinated:
                 break
 
-        if not (is_more_than_market or is_hallucinated):
-            return valid_offers
-        # Nulling all the offers
-        return [[x[0], x[1], Bouquet({})] for x in valid_offers]
+        if is_more_than_market or is_hallucinated:
+            # Nulling all the offers
+            return [[x[0], x[1], Bouquet({})] for x in offers]
+        return valid_offers
 
     def simulate_round(self, curr_round):
         suitor_ids = [suitor.suitor_id for suitor in self.suitors]

@@ -72,27 +72,32 @@ def best_given_bouquet(bouquet_feedback) :
 def estimate_flowers_in_bouquets(color_weights, size_weights, type_weights, flower_counts):
     total_flowers = sum(color_weights.values()) - 2
     total_flowers = max(total_flowers, 2)
-    print("total ",total_flowers)
-    flowers = defaultdict(int)
+    flowers = {}
     if color_weights and size_weights and type_weights:
         for c, s, t in zip(flatten_counter(color_weights), flatten_counter(size_weights),
                            flatten_counter(type_weights)):
             f = Flower(s, c, t)
             if flower_counts.get(f) and flower_counts[f] > 0:
                 flower_counts[f] -= 1
-                flowers[f] += 1
+                if flowers.get(f) :
+                    flowers[f] += 1
+                else :
+                    flowers[f] = 1
                 total_flowers -= 1
 
-    '''
-    for f in flower_counts :
-        print(f)
+    present_flowers = list(flower_counts.keys())
+
+    for f in present_flowers :
         if total_flowers == 0 :
             break
+
         if flower_counts[f] > 0 :
             total_flowers -= 1
             flower_counts[f] -= 1
-            flowers[f] += 1
-    '''
+            if flowers.get(f):
+                flowers[f] += 1
+            else:
+                flowers[f] = 1
 
     return flowers
 
@@ -124,8 +129,9 @@ def learned_bouquets(bouquet_feedback, suitor, flower_counts):
         flowers1 = {"color" : color_weights, "size" : size_weights, "type" : type_weights}
         flowers2 = best_given_bouquet(bouquet_feedback[recipient])
         flowers = decide_bouquet(flowers1, flowers2)
-        res.append((suitor, recipient,Bouquet(estimate_flowers_in_bouquets(flowers["color"], flowers["size"], flowers["type"], flower_counts))))
-            
+        bouquet = Bouquet(estimate_flowers_in_bouquets(flowers["color"], flowers["size"], flowers["type"], flower_counts))
+        res.append((suitor, recipient,bouquet))
+
     return res
 
 
@@ -161,7 +167,6 @@ def learned_weightage(bouquet_feedback, factor):
         temp_sum += res[key]
 
     if temp_sum == 0.0:
-        print(temp_sum)
         return res
 
     weight = flower_for_each_round / temp_sum
@@ -193,7 +198,7 @@ class Suitor(BaseSuitor):
         self.day_count = 0
         self.estimate_score_history = [{k: list() for k in ALL_FEATURES} for _ in range(num_suitors)]
         self.estimate_history = list()
-
+        self.first_pruning = random.randint(days//3, days//2)
         self.bouquet_feedback = defaultdict(lambda: dict(color=[], size=[], type=[]))
         self.logger = logging.getLogger(__name__)
         # self.favorite_bouquet = Bouquet({Flower(FlowerSizes.Large, FlowerColors.Blue, FlowerTypes.Rose): 6, Flower(FlowerSizes.Large, FlowerColors.Red, FlowerTypes.Chrysanthemum): 4})
@@ -226,10 +231,17 @@ class Suitor(BaseSuitor):
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
         self.day_count += 1
-        if self.day_count >= self.days:
-            print("final day bouquets")
+        if self.day_count >= self.first_pruning:
+            #print("final day bouquets")
+            #print(flower_counts)
             bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts)
-            print(bouquets)
+            #print("returning")
+            #print(bouquets)
+            for b in bouquets:
+                s, r, v = b
+                self.bouquet_feedback[r]["color"].append(bouquet_to_dictionary(v, "color"))
+                self.bouquet_feedback[r]["size"].append(bouquet_to_dictionary(v, "size"))
+                self.bouquet_feedback[r]["type"].append(bouquet_to_dictionary(v, "type"))
             return bouquets
 
         send = dict()
@@ -255,6 +267,7 @@ class Suitor(BaseSuitor):
             self.bouquet_feedback[k]["color"].append(bouquet_to_dictionary(v, "color"))
             self.bouquet_feedback[k]["size"].append(bouquet_to_dictionary(v, "size"))
             self.bouquet_feedback[k]["type"].append(bouquet_to_dictionary(v, "type"))
+
         return res
 
     def zero_score_bouquet(self):

@@ -9,7 +9,7 @@ from utils import flatten_counter
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 import logging
-from math import floor
+from math import floor, inf
 
 ALL_FEATURES = list(FlowerSizes) + list(FlowerColors) + list(FlowerTypes)
 ESTIMATE_SIZE = 3
@@ -42,14 +42,40 @@ def bouquet_to_dictionary(bouquet, feature=None):
 
     return res
 
+def best_given_bouquet(bouquet_feedback) :
+    #determine the best score so far
+    print("inside best")
+    score = -inf
+    index = -1
+    for i in range(len(bouquet_feedback["color"])) :
+        if bouquet_feedback["color"][i]["score"] >= score :
+            score = bouquet_feedback["color"][i]["score"]
+            index = i
 
-def create_bouquets(flower_for_this_round, color_weights, size_weights, type_weights):
+    if index == -1 :
+        return {}
+    
+    color_weights = bouquet_feedback["color"][index]
+    del color_weights["score"]
+    del color_weights["rank"]
+
+    size_weights = bouquet_feedback["size"][index]
+    del size_weights["score"]
+    del size_weights["rank"]
+
+    type_weights = bouquet_feedback["type"][index]
+    del type_weights["score"]
+    del type_weights["rank"]
+
+    return estimate_flowers_in_bouquets(color_weights,size_weights,type_weights)
+
+def estimate_flowers_in_bouquets(color_weights, size_weights, type_weights):
     flowers = defaultdict(int)
     if color_weights and size_weights and type_weights:
         for c, s, t in zip(flatten_counter(color_weights), flatten_counter(size_weights),
                            flatten_counter(type_weights)):
             flowers[Flower(s, c, t)] += 1
-    return Bouquet(flowers)
+    return flowers
 
 
 def learned_bouquets(bouquet_feedback, suitor):
@@ -59,8 +85,12 @@ def learned_bouquets(bouquet_feedback, suitor):
         size_weights = learned_weightage(bouquet_feedback[recipient], "size")
         type_weights = learned_weightage(bouquet_feedback[recipient], "type")
 
-        res.append((suitor, recipient,
-                    create_bouquets(sum(color_weights.values()), color_weights, size_weights, type_weights)))
+        flowers = estimate_flowers_in_bouquets(color_weights, size_weights, type_weights)
+        if flowers :
+            res.append((suitor, recipient,Bouquet(flowers)))
+        else :
+            res.append((suitor, recipient,Bouquet(best_given_bouquet(bouquet_feedback[recipient]))))
+            
     return res
 
 
@@ -131,7 +161,7 @@ class Suitor(BaseSuitor):
             for t in FlowerTypes:
                 for c in FlowerColors:
                     possible_flowers.append(Flower(s, c, t))
-        count = random.randrange(1, 12)
+        count = random.randrange(3, 8)
         for i in range(count):
             random_flower = random.choice(possible_flowers)
             if random_flower in bouquet.keys():

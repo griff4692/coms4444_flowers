@@ -35,7 +35,7 @@ class Suitor(BaseSuitor):
         """
             player: 
         """
-        base_weight = 0.1
+        base_weight = 0.05
 
         all_ids = np.arange(num_suitors)
         recipient_ids = all_ids[all_ids != suitor_id]
@@ -68,7 +68,10 @@ class Suitor(BaseSuitor):
     # Random bouquet building
     def _prepare_bouquet(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
-        size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
+        if (num_remaining!=0):
+            size = int(np.random.randint(1,min(MAX_BOUQUET_SIZE,num_remaining)+1))
+        else: 
+            size =0
         if size > 0:
             chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size, ), replace=False)
             chosen_flower_counts = dict(Counter(chosen_flowers))
@@ -80,19 +83,25 @@ class Suitor(BaseSuitor):
         chosen_bouquet = Bouquet(chosen_flower_counts)
 
         if (not recipient_id in self.bouq_Dict.keys()):
-            self.bouq_Dict[recipient_id] = [[chosen_flower_counts, -1, -1]]
+            self.bouq_Dict[recipient_id] = [[chosen_flower_counts, -1, -1 , -1]]
         else:
-            self.bouq_Dict[recipient_id].append([chosen_flower_counts, -1, -1])
+            self.bouq_Dict[recipient_id].append([chosen_flower_counts, -1, -1, -1])
 
         return self.suitor_id, recipient_id, chosen_bouquet
 
     # "smart" building
     def _prepare_bouquet_inter_rounds(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
-        sizes = np.argwhere(self.weights[recipient_id]['number'] == np.amax(self.weights[recipient_id]['number']))
-        sizes.flatten().tolist() # if you want it as a list
-        size0 = max(sizes)
-        size = size0[0]
+        #sizes = np.where(self.weights[recipient_id]['number'] == np.max(self.weights[recipient_id]['number']))
+        #sizes.flatten().tolist() # if you want it as a list
+        #print(self.weights[recipient_id]['number'])
+        #print(sizes)
+        maximum = -100
+        size = 0
+        for i in range(0,len((self.weights[recipient_id]['number']))):
+            if (self.weights[recipient_id]['number'][i] >= maximum):
+                maximum = self.weights[recipient_id]['number'][i]
+                size = i
         #size = np.argmax(self.weights[recipient_id]['number'])
         flip = np.random.randint(0, 1)
         if flip == 0:
@@ -101,7 +110,7 @@ class Suitor(BaseSuitor):
             size += 1
         if size > num_remaining:
             size = num_remaining
-
+        print(self.weights[recipient_id])
         # changes = 0
         if size > 0:
             scored_flowers = []
@@ -113,7 +122,6 @@ class Suitor(BaseSuitor):
                 for i in range(remaining_flowers[flower]):
                     scored_flowers.append([flower, reward])
             scored_flowers = sorted(scored_flowers, key=lambda item: item[1], reverse=True)
-            
             chosen_flowers = []
             for cf in scored_flowers[:size-1]:
                 chosen_flowers.append(cf[0])
@@ -125,18 +133,19 @@ class Suitor(BaseSuitor):
             chosen_flower_counts = dict()
         chosen_bouquet = Bouquet(chosen_flower_counts)
 
-        self.bouq_Dict[recipient_id].append([chosen_flower_counts, -1, -1])
+        self.bouq_Dict[recipient_id].append([chosen_flower_counts, -1, -1, -1])
         return self.suitor_id, recipient_id, chosen_bouquet
 
     def _prepare_bouquet_last_round(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
         #size = np.argmax(self.weights[recipient_id]['number'])
         #when multiple number weights have the same value argmax returns the smallest index which is usually 0. I changed it to return the maximum index
-        sizes = np.argwhere(self.weights[recipient_id]['number'] == np.amax(self.weights[recipient_id]['number']))
-        sizes.flatten().tolist() # if you want it as a list
-        size0 = max(sizes)
-        #print(self.weights[recipient_id])
-        size = size0[0]
+        maximum = -100
+        size = 0
+        for i in range(0,len((self.weights[recipient_id]['number']))):
+            if (self.weights[recipient_id]['number'][i] >= maximum):
+                maximum = self.weights[recipient_id]['number'][i]
+                size = i
         if size > 0:
             scored_flowers = []
             for flower in remaining_flowers.keys():
@@ -159,7 +168,7 @@ class Suitor(BaseSuitor):
             chosen_flower_counts = dict()
         chosen_bouquet = Bouquet(chosen_flower_counts)
 
-        self.bouq_Dict[recipient_id].append([chosen_flower_counts, -1, -1])
+        self.bouq_Dict[recipient_id].append([chosen_flower_counts, -1, -1, -1])
         return self.suitor_id, recipient_id, chosen_bouquet
         # best_bouquet_score = max(self.bouq_Dict[recipient_id], key=lambda e: int(e[1]))
         # best_bouquet = best_bouquet_score[0]
@@ -212,7 +221,7 @@ class Suitor(BaseSuitor):
                 bouqs = self.bouq_Dict[i]
                 highest = 0
                 for bouq in bouqs:
-                    score_prio = bouq[1] * (self.num_suitors - bouq[2])
+                    score_prio = bouq[1] * ((self.num_suitors - bouq[2])/(self.num_suitors-1))* ((self.num_suitors - bouq[3])/(self.num_suitors-1))
                     if score_prio > highest:
                         highest = score_prio
                 score_Dict[i] = highest
@@ -239,7 +248,7 @@ class Suitor(BaseSuitor):
                 for bouq in bouqs:
                     if (bouq[1]==1.0):
                         already_know = 1
-                    score_prio = bouq[1] * (self.num_suitors - bouq[2])
+                    score_prio = bouq[1] * ((self.num_suitors - bouq[2])/bouq[3])*((self.num_suitors - bouq[3])/(self.num_suitors-1))
                     if score_prio > highest:
                         highest = score_prio
                 if (already_know):
@@ -248,7 +257,8 @@ class Suitor(BaseSuitor):
                     score_Dict[i] = highest
             
             score_Dict = dict(sorted(score_Dict.items(), key=lambda item: item[1], reverse=True))
-
+            print(score_Dict)
+            
             return list(map(lambda recipient_id: self._prepare_bouquet_inter_rounds(remaining_flowers, recipient_id), score_Dict.keys()))
 
     def zero_score_bouquet(self):
@@ -415,6 +425,7 @@ class Suitor(BaseSuitor):
             lastbouquet = self.bouq_Dict[id][-1]
             lastbouquet[1] = feedback[id][1]
             lastbouquet[2] = feedback[id][0]
+            lastbouquet[3] = feedback[id][2]
             self.bouq_Dict[id][-1] = lastbouquet
 
             # estimate reward w current weights
@@ -457,14 +468,19 @@ class Suitor(BaseSuitor):
                         estimate += (self.weights[id][att][sp] * flower_dict[att][sp])
 
             diff = lastbouquet[1] - estimate
-            diff_fraq = diff / ((flower_dict['number'] * 3) + 1)
+            #diff_fraq = diff / ((flower_dict['number'] * 3) + 1)
+            diff_fraq_number = diff/4
+            if (flower_dict['number']>0):
+                diff_fraq_attributes = (3/4)*diff / ((flower_dict['number'] * 3) )
+            else:
+                diff_fraq_attributes=0
             for att in flower_dict.keys():
                 if att == 'number':
                     curr = self.weights[id][att][flower_dict[att] - 1]
-                    self.weights[id][att][flower_dict[att] - 1] = curr + diff_fraq
+                    self.weights[id][att][flower_dict[att] - 1] = curr + diff_fraq_number
                 else:
                     for sp in flower_dict[att].keys():
                         curr = self.weights[id][att][sp]
-                        self.weights[id][att][sp] = curr + (flower_dict[att][sp] * diff_fraq)
+                        self.weights[id][att][sp] = curr + (flower_dict[att][sp] * diff_fraq_attributes)
 
         self.feedback.append(feedback)

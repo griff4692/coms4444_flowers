@@ -1,4 +1,5 @@
 from collections import Counter, OrderedDict, defaultdict
+from dataclasses import dataclass
 from enum import Enum
 import itertools
 import random
@@ -34,16 +35,11 @@ class FlowerTypes(Enum):
     Begonia = 3
 
 
+@dataclass(eq=True, frozen=True)
 class Flower:
-    def __init__(self, size: FlowerSizes, color: FlowerColors, type: FlowerTypes):
-        """
-        :param size: flower size
-        :param color: flower color
-        :param type: flower type
-        """
-        self.size = size
-        self.color = color
-        self.type = type
+    size: FlowerSizes
+    color: FlowerColors
+    type: FlowerTypes
 
     def __str__(self):
         """
@@ -61,9 +57,9 @@ class Bouquet:
         self.arrangement = OrderedDict(sorted(arrangement.items(), key=lambda x: (-x[1], str(x[0]))))
         self.sizes, self.colors, self.types = defaultdict(int), defaultdict(int), defaultdict(int)
         for flower, count in arrangement.items():
-            self.sizes[flower.size] += 1
-            self.colors[flower.color] += 1
-            self.types[flower.type] += 1
+            self.sizes[flower.size] += count
+            self.colors[flower.color] += count
+            self.types[flower.type] += count
         self.types = dict(self.types)
         self.colors = dict(self.colors)
         self.sizes = dict(self.sizes)

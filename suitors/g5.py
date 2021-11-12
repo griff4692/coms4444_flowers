@@ -1,10 +1,15 @@
-from typing import Dict, Tuple, List, Union
+import collections
 import heapq
 import random
+import math
+from dataclasses import dataclass
+from typing import Dict, Tuple, List, Union
+
+import numpy as np
 
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
-from suitors.base import BaseSuitor
 from suitors import random_suitor
+from suitors.base import BaseSuitor
 
 
 class SuitorFeedback:
@@ -39,6 +44,32 @@ class SuitorFeedback:
         return self.score < other.score
 
 
+# Necessary to make hashing work properly while we're constructing our random bouquet
+@dataclass(eq=True, frozen=True)
+class StaticFlower:
+    size: FlowerSizes
+    color: FlowerColors
+    type: FlowerTypes
+
+    def to_flower(self) -> Flower:
+        return Flower(self.size, self.color, self.type)
+
+
+def random_bouquet(size: int) -> Bouquet:
+    flowers = collections.defaultdict(lambda: 0)
+    sizes = list(FlowerSizes)
+    colors = list(FlowerColors)
+    types = list(FlowerTypes)
+    for _ in range(size):
+        f = StaticFlower(size=np.random.choice(sizes), color=np.random.choice(colors), type=np.random.choice(types))
+        flowers[f] += 1
+
+    b_dict = {}
+    for key, value in flowers.items():
+        b_dict[key.to_flower()] = value
+    return Bouquet(b_dict)
+
+
 class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
         """
@@ -54,6 +85,10 @@ class Suitor(BaseSuitor):
         self.bouquets = {}
         bad_color_num = random.randint(0, len(FlowerColors)-1)
         self.bad_color_enum = FlowerColors(bad_color_num)
+
+        # New bouquet setup
+        self.n_flowers = math.ceil(math.log(num_suitors * days) / math.log(8))
+        self.ideal_bouquet: Bouquet = random_bouquet(self.n_flowers)
 
     @staticmethod
     def can_construct(bouquet: Bouquet, flower_counts: Dict[Flower, int]):
@@ -76,18 +111,18 @@ class Suitor(BaseSuitor):
             return fb.score
 
         self.feedback.sort(key=key_func, reverse=True)
-        final_bouquets = []
+        final_bouquets = {n: (self.suitor_id, n, Bouquet({})) for n in range(self.num_suitors)}
+        del final_bouquets[self.suitor_id]
         already_prepared = set()
         for fb in self.feedback:
             fb: SuitorFeedback = fb
             if fb.suitor in already_prepared:
                 continue
             if self.can_construct(fb.bouquet, flower_counts):
-                final_bouquets.append((self.suitor_id, fb.suitor, fb.bouquet))
+                final_bouquets[fb.suitor] = (self.suitor_id, fb.suitor, fb.bouquet)
                 flower_counts = self.reduce_flowers(fb.bouquet, flower_counts)
                 already_prepared.add(fb.suitor)
-
-        return final_bouquets
+        return list(final_bouquets.values())
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]) -> List[Tuple[int, int, Bouquet]]:
         """
@@ -115,47 +150,46 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 0
         """
-        f = Flower(FlowerSizes.Small, self.bad_color_enum, FlowerTypes.Rose)
-        d = {f: 1}
-        return Bouquet(d)
+        return Bouquet(dict())
 
     def one_score_bouquet(self):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
-        good_color_enum = None
-        for v in FlowerColors:
-            if v != self.bad_color_enum:
-                good_color_enum = v
-                break
-        f = Flower(FlowerSizes.Small, good_color_enum, FlowerTypes.Rose)
-        d = {f: 1}
-        return Bouquet(d)
+        return self.ideal_bouquet
+
+    def score_x(self, max_score: float, actual_x: Dict, ideal_x: Dict) -> float:
+        matching = self.n_flowers
+        for x, c in ideal_x.items():
+            if x not in actual_x or c > actual_x[x]:
+                matching -= c
+        if matching <= 0:
+            return 0.0
+        return max_score / 2**(self.n_flowers - matching)
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        return 0.0
+        ideal_types = self.ideal_bouquet.types
+        return self.score_x(0.0, types, ideal_types)
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        for c, v in colors.items():
-            if c == self.bad_color_enum and v != 0:
-                return 0
-
-        return 1.0
+        ideal_colors = self.ideal_bouquet.colors
+        return self.score_x(0.34 + 0.33, colors, ideal_colors)
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
-        return 0.0
+        ideal_sizes = self.ideal_bouquet.sizes
+        return self.score_x(0.33, sizes, ideal_sizes)
 
     def receive_feedback(self, feedback):
         """
@@ -163,7 +197,7 @@ class Suitor(BaseSuitor):
             number such that feedback[0] is the feedback for suitor 0.
         :return: nothing
         """
-        for suitor_num, (rank, score) in enumerate(feedback):
+        for suitor_num, (rank, score, _) in enumerate(feedback):
             # Skip ourselves
             if score == float('-inf'):
                 continue

@@ -6,4 +6,6 @@
 
 ## Getting Started
 
+Requires **python3.7** or higher
+
 Run `pip install -r requirements.txt`

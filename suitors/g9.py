@@ -209,11 +209,6 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 0
         """
-        #min_flower = Flower(
-        #    size=self.size_score[0],
-        #    color=self.color_score[0],
-        #    type=self.type_score[0]
-        #)
         return Bouquet({})
 
     def one_score_bouquet(self):
@@ -254,10 +249,13 @@ class Suitor(BaseSuitor):
             key[n]+=1
         combination = [key[i] for i in range(4)]
         score = self.type_score[tuple(combination)]
-        if score>1700:
+        # random based on the days and number of players
+        max = 1819
+        threshold = int(0.01**(1/(self.days * self.num_suitors))*max)
+        if score>threshold:
             return 4/13
         else:
-            return 0
+            return 2/13 # higher score means bigger chance to be chosen in the final day
 
 
 

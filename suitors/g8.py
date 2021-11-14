@@ -302,11 +302,12 @@ class Suitor(BaseSuitor):
         score = 0
         total = 0
         # sum up the scores of each flower type
-        for flower in sizes:
-            index = flower.value # get enum value for flower attribute
-            number = sizes[flower] # get number of flowers
-            score = score + (self.size_weights[index] * number)
-            total = total + number
+        if self.days !=1:
+            for flower in sizes:
+                index = flower.value # get enum value for flower attribute
+                number = sizes[flower] # get number of flowers
+                score = score + (self.size_weights[index] * number)
+                total = total + number
 
         # get average score for number of flowers
         if total != 0:
@@ -315,7 +316,7 @@ class Suitor(BaseSuitor):
         # multiply by .4 since each type, sixe, color is .4 weight but one is dropped + .2 number
         score = score * .4
 
-        if self.null == 2 or self.days==1:
+        if self.null == 2:
             score = 0
 
         # count number of flowers for the last .25

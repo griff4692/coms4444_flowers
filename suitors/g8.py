@@ -6,6 +6,8 @@ import random
 import numpy as np
 from constants import MAX_BOUQUET_SIZE
 from utils import flatten_counter
+import itertools
+import math
 
 
 class Suitor(BaseSuitor):
@@ -26,8 +28,16 @@ class Suitor(BaseSuitor):
             # pick one attribute to null
             self.null = random.randint(0,2) # 0=type, 1=color, 2=size
         elif self.days==1:
-            self.color_weights = [1 / (self.num_suitors ** 2), 1 / (self.num_suitors ** 2), 1 / (self.num_suitors), 1 / (self.num_suitors),
-                                  2 / (self.num_suitors), 1]
+            self.alloptions = []
+            for n in range(1, 13):
+                self.alloptions = self.alloptions + list(itertools.combinations_with_replacement([0,1,2,3,4,5], n))
+            l = len(self.alloptions)
+            ones = math.ceil((1/(self.num_suitors-1))*l)
+            zeros = l - ones
+            mask = [True for n in range(ones)] + [False for n in range(zeros)]
+            random.shuffle(mask)
+            self.alloptions = list(itertools.compress(self.alloptions, mask))
+            print(self.alloptions)
             self.null = 3 # so its ignored by scoring methods
         self.given = {} # dictionary to save the bouquets we gave + their scores
         all_ids = np.arange(self.num_suitors)
@@ -269,6 +279,21 @@ class Suitor(BaseSuitor):
         if self.null == 1:
             return 0
 
+        # color only one if days = 1 --> Probabilisitic
+        if self.days == 1:
+            color_list = []
+            for flower in colors:
+                index = flower.value
+                number = colors[flower]
+                for n in range(0, number):
+                    color_list.append(index)
+            color_list.sort()
+            color_tuple = tuple(color_list)
+            if color_tuple in self.alloptions:
+                return 1
+            else:
+                return 0
+
         score = 0
         total = 0
         # sum up the scores of each flower type
@@ -282,9 +307,6 @@ class Suitor(BaseSuitor):
         if total != 0:
             score = score / total
 
-        # color only one if days = 1
-        if self.days == 1:
-            return score
         # multiply by .4 since each type, sixe, color is .4 weight but one is dropped + .2 number
         return score * .4
 
@@ -299,15 +321,17 @@ class Suitor(BaseSuitor):
         # get preference order
         # random.shuffle(weights)
 
+        if self.days == 1:
+            return 0
+
         score = 0
         total = 0
         # sum up the scores of each flower type
-        if self.days !=1:
-            for flower in sizes:
-                index = flower.value # get enum value for flower attribute
-                number = sizes[flower] # get number of flowers
-                score = score + (self.size_weights[index] * number)
-                total = total + number
+        for flower in sizes:
+            index = flower.value # get enum value for flower attribute
+            number = sizes[flower] # get number of flowers
+            score = score + (self.size_weights[index] * number)
+            total = total + number
 
         # get average score for number of flowers
         if total != 0:

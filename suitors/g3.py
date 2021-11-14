@@ -3,7 +3,7 @@ import random
 from collections import Counter, defaultdict
 from math import floor, inf
 from typing import Dict, Tuple, List, Union
-
+import warnings
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 
@@ -90,7 +90,7 @@ def estimate_flowers_in_bouquets(color_weights, size_weights, type_weights, flow
             flower_counts[f] -= 1
             flowers[f] += 1
 
-    return flowers
+    return flower_counts, flowers
 
 
 def decide_bouquet(flowers1, flowers2):
@@ -100,7 +100,9 @@ def decide_bouquet(flowers1, flowers2):
     for key in X:
         X[key] = X[key].append([flowers1[key], flowers2[key]]).fillna(0)
         testX[key] = X[key].tail(2)
-        score = model[key].predict(testX[key])
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            score = model[key].predict(testX[key])
         score_flowers1 += score[0]
         score_flowers2 += score[1]
 
@@ -121,11 +123,11 @@ def learned_bouquets(bouquet_feedback, suitor, flower_counts):
         flowers1 = {"color": color_weights, "size": size_weights, "type": type_weights}
         flowers2 = best_given_bouquet(bouquet_feedback[recipient])
         flowers = decide_bouquet(flowers1, flowers2)
-        bouquet = Bouquet(
-            estimate_flowers_in_bouquets(flowers["color"], flowers["size"], flowers["type"], flower_counts))
+        flower_counts, r = estimate_flowers_in_bouquets(flowers["color"], flowers["size"], flowers["type"], flower_counts)
+        bouquet = Bouquet(r)
         res.append((suitor, recipient, bouquet))
 
-    return res
+    return flower_counts, res
 
 
 def learned_weightage(bouquet_feedback, factor):
@@ -141,8 +143,10 @@ def learned_weightage(bouquet_feedback, factor):
     elif len(cols) == 1:
         return {cols[0]: flower_for_each_round}
 
-    model[factor].fit(X[factor], Y[factor])
-    coefficients = model[factor].coef_
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        model[factor].fit(X[factor], Y[factor])
+        coefficients = model[factor].coef_
 
     # only consider positive elements in bouquet
     res = {}
@@ -218,7 +222,7 @@ class Suitor(BaseSuitor):
         """
         self.day_count += 1
         if self.day_count >= self.first_pruning:
-            bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts)
+            flower_counts, bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts.copy())
         else:
             bouquets = list()
             recipient_ids = self.recipient_ids.copy()

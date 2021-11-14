@@ -6,6 +6,7 @@ import math
 import numpy as np
 import pandas as pd
 import random
+import pdb
 from sklearn.linear_model import LinearRegression
 
 from constants import MAX_BOUQUET_SIZE
@@ -31,6 +32,7 @@ class Suitor(BaseSuitor):
 
         self.all_possible_flower_keys = [str(f) for f in get_all_possible_flowers()]
         self.NUM_ALL_POSSIBLE_FLOWERS = len(self.all_possible_flower_keys)
+        
         self.all_possible_flowers = dict(zip(self.all_possible_flower_keys, [0] * self.NUM_ALL_POSSIBLE_FLOWERS))
         self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
         super().__init__(days, num_suitors, suitor_id, name='g6')
@@ -81,6 +83,43 @@ class Suitor(BaseSuitor):
 
         return bouquets
 
+    def _extract_the_dimensions(self, bouquets):
+        list_of_dicts = []
+        for bouquet in bouquets:
+            dict_of_features = {}
+            for elem in self.all_possible_flower_keys:
+                components = elem.split("-")
+            
+                for comp in components:
+                    if comp not in dict_of_features:
+                        dict_of_features[comp] = 0
+
+            for i,boolean in enumerate(bouquet):
+                if boolean==1:
+                    flowertype = self.all_possible_flower_keys[i]
+                    components = flowertype.split("-")
+                    size = components[0]
+                    if size in dict_of_features:
+                        dict_of_features[size] = dict_of_features[size] + 1
+                    else:
+                        dict_of_features[size] = 0
+
+                    color = components[1]
+                    if color in dict_of_features:
+                        dict_of_features[color] = dict_of_features[color] + 1
+                    else:
+                        dict_of_features[color] = 0
+
+                    ftype = components[2]
+                    if ftype in dict_of_features:
+                        dict_of_features[ftype] = dict_of_features[ftype] + 1
+                    else:
+                        dict_of_features[ftype] = 0
+                list_of_dicts.append(dict_of_features)
+
+        return list_of_dicts
+
+
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
         :param flower_counts: flowers and associated counts for for available flowers
@@ -126,6 +165,7 @@ class Suitor(BaseSuitor):
             if self.curr_day > 1 and self.curr_day > int(self.days * 0.3): # giving bouquet using best guess from Linear Regression
                 # getting all valid flower combinations for each person -- so know best bouquet is valid
                 all_possible_bouquets_arr = self._get_all_possible_bouquets_arr(remaining_flowers)
+                #MIA SAYS UNCOMMENT THIS LINE self._extract_the_dimensions(all_possible_bouquets_arr)
                 all_possible_bouquets_nparr = np.array(all_possible_bouquets_arr)
                 hist_nparr = np.asarray(self.arrangement_hist[i], dtype=int)
 

@@ -3,7 +3,7 @@ import random
 from collections import Counter, defaultdict
 from math import floor, inf
 from typing import Dict, Tuple, List, Union
-
+import warnings
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 
@@ -100,7 +100,9 @@ def decide_bouquet(flowers1, flowers2):
     for key in X:
         X[key] = X[key].append([flowers1[key], flowers2[key]]).fillna(0)
         testX[key] = X[key].tail(2)
-        score = model[key].predict(testX[key])
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            score = model[key].predict(testX[key])
         score_flowers1 += score[0]
         score_flowers2 += score[1]
 
@@ -141,8 +143,10 @@ def learned_weightage(bouquet_feedback, factor):
     elif len(cols) == 1:
         return {cols[0]: flower_for_each_round}
 
-    model[factor].fit(X[factor], Y[factor])
-    coefficients = model[factor].coef_
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        model[factor].fit(X[factor], Y[factor])
+        coefficients = model[factor].coef_
 
     # only consider positive elements in bouquet
     res = {}

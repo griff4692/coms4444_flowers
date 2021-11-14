@@ -29,6 +29,13 @@ class FlowerTypes(Enum):
     Begonia = 3
 """
 
+def numbers_with_sum(n, k):
+    """n numbers with sum k"""
+    if n == 1:
+        return [k]
+    num = random.randint(0, k)
+    return [num] + numbers_with_sum(n - 1, k - num)
+
 
 class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
@@ -39,6 +46,7 @@ class Suitor(BaseSuitor):
         """
         self.suitor_id = suitor_id
         self.scoring_parameters = {}
+        self.best_scoring_parameters = {}
         self.other_suitors = []
         self.bouquets_given = defaultdict(list)
         self.turn = 1
@@ -50,26 +58,28 @@ class Suitor(BaseSuitor):
         self.num_flowers_in_bouquet = self.get_random_num_flowers(seed=2)
         self.our_favorite_bouquet = self.get_random_bouquet(num_flowers = self.num_flowers_in_bouquet)
         self.scoring_weight = {'type': 0.3, 'color':0.5, 'size':0.2}
-        random_low = -1.0
-        random_high = 1.0
         for i in range(num_suitors):
+            size_values = numbers_with_sum(3,6)
+            color_values = numbers_with_sum(6,6)
+            type_values = numbers_with_sum(4,6)
             if i != suitor_id:
                 self.other_suitors.append(i)
                 self.scoring_parameters[i] = {
-                    FlowerSizes.Small: round(random.uniform(random_low,random_high), 2),
-                    FlowerSizes.Medium: round(random.uniform(random_low,random_high), 2),
-                    FlowerSizes.Large: round(random.uniform(random_low,random_high), 2),
-                    FlowerColors.White: round(random.uniform(random_low,random_high), 2),
-                    FlowerColors.Yellow: round(random.uniform(random_low,random_high), 2),
-                    FlowerColors.Red: round(random.uniform(random_low,random_high), 2),
-                    FlowerColors.Purple: round(random.uniform(random_low,random_high), 2),
-                    FlowerColors.Orange: round(random.uniform(random_low,random_high), 2),
-                    FlowerColors.Blue: round(random.uniform(random_low,random_high), 2),
-                    FlowerTypes.Rose: round(random.uniform(random_low,random_high), 2),
-                    FlowerTypes.Chrysanthemum: round(random.uniform(random_low,random_high), 2),
-                    FlowerTypes.Tulip: round(random.uniform(random_low,random_high), 2),
-                    FlowerTypes.Begonia: round(random.uniform(random_low,random_high), 2),
+                    FlowerSizes.Small: size_values[0],
+                    FlowerSizes.Medium: size_values[1],
+                    FlowerSizes.Large: size_values[2],
+                    FlowerColors.White: color_values[0],
+                    FlowerColors.Yellow: color_values[1],
+                    FlowerColors.Red: color_values[2],
+                    FlowerColors.Purple: color_values[3],
+                    FlowerColors.Orange: color_values[4],
+                    FlowerColors.Blue: color_values[5],
+                    FlowerTypes.Rose: type_values[0],
+                    FlowerTypes.Chrysanthemum: type_values[1],
+                    FlowerTypes.Tulip: type_values[2],
+                    FlowerTypes.Begonia: type_values[3],
                 }
+                self.best_scoring_parameters[i] = deepcopy(self.scoring_parameters[i])
 
         super().__init__(days, num_suitors, suitor_id, name='g2')
 
@@ -98,12 +108,13 @@ class Suitor(BaseSuitor):
         to_return[items_to_split[-1]] = max_number - running_sum
         return to_return
 
-    def prepare_bouquet_for_group(self, group_id, flowers, copy_flower_counts, count = 4, rand=False, last=False):
+    def prepare_bouquet_for_group(self, group_id, flowers, copy_flower_counts, rand=False, last=False):
         bouquet = defaultdict(int)
         bouquet_info = defaultdict(int)
         scoring_function = self.scoring_parameters[group_id]
         prev_bouquets = self.bouquets_given[group_id]
         if rand:
+            count = random.randint(2,10)
             random.shuffle(flowers)
             for _ in range(count):
                 for item in flowers:
@@ -230,27 +241,48 @@ class Suitor(BaseSuitor):
                         copy_flower_counts[str(best_flower)] -= 1
                         """
         else:
-            for _ in range(count):
+            scoring_function_copy = deepcopy(scoring_function)
+            max_flowers_to_give = min(sum(scoring_function.values()) // 3 + int((self.turn / self.days) * self.total_number_flowers // 4), self.max_flowers_to_give)
+            for _ in range(max_flowers_to_give):
                 best_flower = None
-                best_score = -10000
+                best_score, best_type, best_color, best_size = -10000, -10000, -10000, -10000 
                 for item in flowers:
                     key,value = item
                     score = 0
                     if copy_flower_counts[str(key)] <= 0:
                         continue
-                    
-                    score += scoring_function[key.type] - bouquet_info[key.type]
-                    score += scoring_function[key.color] - bouquet_info[key.color]
-                    score += scoring_function[key.size] - bouquet_info[key.size]
+
+                    need_type = scoring_function[key.type] - bouquet_info[key.type]
+                    need_color = scoring_function[key.color] - bouquet_info[key.color]
+                    need_size = scoring_function[key.size] - bouquet_info[key.size]
+
+                    if need_type > 0:
+                        score += 1
+                    if need_color > 0:
+                        score += 1
+                    if need_size > 0:
+                        score += 1
+
+                    if score == 3:
+                        best_flower = key
+                        best_score = score
+                        break
 
                     if score > best_score:
-                        best_score = score
+                        best_score, best_type, best_color, best_size = score, need_type, need_color, need_size
                         best_flower = key
+                    elif score == best_score:
+                        if need_type + need_color + need_size > best_type + best_color + best_size:
+                            best_score, best_type, best_color, best_size = score, need_type, need_color, need_size
+                            best_flower = key 
                 
                 if best_flower == None:
                     break
-                elif best_score > 0:
+                elif best_score > 1:
                     bouquet[best_flower] += 1
+                    bouquet_info[best_flower.type] += 1
+                    bouquet_info[best_flower.color] += 1
+                    bouquet_info[best_flower.size] += 1
                     copy_flower_counts[str(best_flower)] -= 1
                 else:
                     break
@@ -268,14 +300,16 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
-        min_groups_to_give = 3 if self.num_suitors > 4 else 2
-        groups_to_give = max(min_groups_to_give, self.num_suitors - (self.num_suitors - min_groups_to_give) * (self.turn / self.days))
-        flower_for_each_group = int(len(flower_counts) // (groups_to_give))
         bouquets = []
 
         copy_flower_counts = {}
+        total = 0
         for key,value in flower_counts.items():
             copy_flower_counts[str(key)] = value 
+            total += value
+        
+        self.total_number_flowers = total
+        self.max_flowers_to_give = total // ((self.num_suitors - 1) // 3)
         
         flowers = [(key,value) for key,value in flower_counts.items()]
 
@@ -285,13 +319,11 @@ class Suitor(BaseSuitor):
         for o_id in self.other_suitors:
             r = random.uniform(0,1)
             if r < self.exploration_alpha or self.turn == 1:
-
                 b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts, rand=True)
             elif self.turn >= self.days:
                 b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts, rand=False, last=True)
-
             else: 
-                b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts, count = flower_for_each_group) 
+                b, copy_flower_counts = self.prepare_bouquet_for_group(o_id, flowers, copy_flower_counts) 
             self.bouquets_given[o_id].append([b[2]])
             bouquets.append(b)
 
@@ -387,17 +419,46 @@ class Suitor(BaseSuitor):
             return weight / distance
 
     def adjust_scoring_function(self, prev_s, curr_s, o_id, bouquet):
-        how_much = (curr_s - prev_s) * self.learning_rate
+        if curr_s < prev_s:
+            self.scoring_parameters[o_id] = self.best_scoring_parameters[o_id]
+        else:
+            self.scoring_parameters[o_id] = defaultdict(int)
+            for flower in bouquet.flowers():
+                self.scoring_parameters[o_id][flower.size] += 1
+                self.scoring_parameters[o_id][flower.type] += 1
+                self.scoring_parameters[o_id][flower.color] += 1
+        
+        total_flowers_given = sum(self.scoring_parameters[o_id].values()) // 3
+        if total_flowers_given == 0:
+            return
+        parameters = ["size","color","type"]
 
-        for size, value in bouquet.sizes.items():
-            self.scoring_parameters[o_id][size] += how_much * value
+        while True:
+            to_change = random.choice(parameters)
 
-        for t, value in bouquet.types.items():
-            self.scoring_parameters[o_id][t] += how_much * value
+            if to_change == "size":
+                params = [FlowerSizes.Small, FlowerSizes.Medium, FlowerSizes.Large]
+            elif to_change == "color":
+                params = [FlowerColors.White, FlowerColors.Yellow, FlowerColors.Red, FlowerColors.Purple, FlowerColors.Orange, FlowerColors.Blue]
+            else:
+                params = [FlowerTypes.Rose, FlowerTypes.Chrysanthemum, FlowerTypes.Tulip, FlowerTypes.Begonia]
 
-        for color, value in bouquet.colors.items():
-            self.scoring_parameters[o_id][color] += how_much * value
-
+            to_increase = random.choice(params)
+            
+            if self.scoring_parameters[o_id][to_increase] < total_flowers_given:
+                break
+        
+        to_decrease = None
+        while to_decrease == None:
+            # print("decreasing")
+            to_decrease = random.choice(params)
+            if to_decrease == to_increase or self.scoring_parameters[o_id][to_decrease] == 0:
+                to_decrease = None
+            else:
+                break
+        
+        self.scoring_parameters[o_id][to_increase] += 1
+        self.scoring_parameters[o_id][to_decrease] -= 1
 
     def receive_feedback(self, feedback):
         """

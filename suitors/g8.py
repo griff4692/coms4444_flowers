@@ -6,6 +6,8 @@ import random
 import numpy as np
 from constants import MAX_BOUQUET_SIZE
 from utils import flatten_counter
+import itertools
+import math
 
 
 class Suitor(BaseSuitor):
@@ -16,14 +18,27 @@ class Suitor(BaseSuitor):
         :param suitor_id: unique id of your suitor in range(num_suitors)
         """
         super().__init__(days, num_suitors, suitor_id, name='g8')
-        self.type_weights = [1/(self.days**2), 1/(self.days), 2/(self.days), 1]
-        self.color_weights = [1/(self.days**2), 1/(self.days**2), 1/(self.days), 1/(self.days), 2/(self.days), 1]
-        self.size_weights = [1/(self.days**2), 1/(self.days), 1]
-        random.shuffle(self.type_weights)
-        random.shuffle(self.color_weights)
-        random.shuffle(self.size_weights)
-        # pick one attribute to null
-        self.null = random.randint(0,2) # 0=type, 1=color, 2=size
+        if self.days > 1:
+            self.type_weights = [1/(self.days**2), 1/(self.days), 2/(self.days), 1]
+            self.color_weights = [1/(self.days**2), 1/(self.days**2), 1/(self.days), 1/(self.days), 2/(self.days), 1]
+            self.size_weights = [1/(self.days**2), 1/(self.days), 1]
+            random.shuffle(self.type_weights)
+            random.shuffle(self.color_weights)
+            random.shuffle(self.size_weights)
+            # pick one attribute to null
+            self.null = random.randint(0,2) # 0=type, 1=color, 2=size
+        elif self.days==1:
+            self.alloptions = []
+            for n in range(1, 13):
+                self.alloptions = self.alloptions + list(itertools.combinations_with_replacement([0,1,2,3,4,5], n))
+            l = len(self.alloptions)
+            ones = math.ceil((1/(self.num_suitors-1))*l)
+            zeros = l - ones
+            mask = [True for n in range(ones)] + [False for n in range(zeros)]
+            random.shuffle(mask)
+            self.alloptions = list(itertools.compress(self.alloptions, mask))
+            print(self.alloptions)
+            self.null = 3 # so its ignored by scoring methods
         self.given = {} # dictionary to save the bouquets we gave + their scores
         all_ids = np.arange(self.num_suitors)
         self.recipient_ids = all_ids[all_ids != self.suitor_id]
@@ -71,7 +86,7 @@ class Suitor(BaseSuitor):
                 type_score = scores_per_player[suitor]["type"][type.value]
                 size_score = scores_per_player[suitor]["size"][size.value]
                 total_score = color_score+type_score+size_score
-                if total_score>max_score and suitor_bouquet_counts[suitor]<6:
+                if total_score>max_score and suitor_bouquet_counts[suitor]<7:
                     max_score=total_score
                     suitor_getting_flower=suitor
             if flower in chosen_bouquets[suitor_getting_flower]:
@@ -106,7 +121,6 @@ class Suitor(BaseSuitor):
                     preferences["size"][i] = val
             scores_by_attribute[suitor] = preferences
         return scores_by_attribute
-
 
     def scores_per_player(self, given):
         scores_by_attribute = {} # will be a dictionary of dictionaries, one per suitor, dictionaries contain info on scores per attribute
@@ -153,8 +167,6 @@ class Suitor(BaseSuitor):
             scores_by_attribute[suitor]=preferences
 
         return scores_by_attribute
-
-
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
 
@@ -218,8 +230,6 @@ class Suitor(BaseSuitor):
 
         return bouquets
 
-
-
     def zero_score_bouquet(self):
         """
         :return: a Bouquet for which your scoring function will return 0
@@ -242,7 +252,7 @@ class Suitor(BaseSuitor):
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        if self.null == 0:
+        if self.null == 0 or self.days == 1:
             return 0
 
         score = 0
@@ -261,7 +271,6 @@ class Suitor(BaseSuitor):
         # multiply by .4 since each type, sixe, color is .4 weight but one is dropped + .2 number
         return score*.4
 
-
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
@@ -269,6 +278,21 @@ class Suitor(BaseSuitor):
         """
         if self.null == 1:
             return 0
+
+        # color only one if days = 1 --> Probabilisitic
+        if self.days == 1:
+            color_list = []
+            for flower in colors:
+                index = flower.value
+                number = colors[flower]
+                for n in range(0, number):
+                    color_list.append(index)
+            color_list.sort()
+            color_tuple = tuple(color_list)
+            if color_tuple in self.alloptions:
+                return 1
+            else:
+                return 0
 
         score = 0
         total = 0
@@ -297,6 +321,9 @@ class Suitor(BaseSuitor):
         # get preference order
         # random.shuffle(weights)
 
+        if self.days == 1:
+            return 0
+
         score = 0
         total = 0
         # sum up the scores of each flower type
@@ -317,7 +344,7 @@ class Suitor(BaseSuitor):
             score = 0
 
         # count number of flowers for the last .25
-        weights_number = [0, .1, .2, .32, .48, .56, .72, .8, .88, 1, 1, 1, 1]
+        weights_number = [0, .05, .18, .32, .48, .72, .85, 1, 1, 1, 1, 1, 1]
         score_count = weights_number[total]*.2
 
         return score+score_count

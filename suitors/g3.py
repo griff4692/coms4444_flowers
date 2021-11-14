@@ -76,14 +76,12 @@ def estimate_flowers_in_bouquets(color_weights, size_weights, type_weights, flow
         for c, s, t in zip(flatten_counter(color_weights), flatten_counter(size_weights),
                            flatten_counter(type_weights)):
             f = Flower(s, c, t)
-            if flower_counts.get(f) and flower_counts[f] > 0:
+            if flower_counts.get(f, 0) > 0:
                 flower_counts[f] -= 1
                 flowers[f] += 1
                 total_flowers -= 1
 
-    present_flowers = list(flower_counts.keys())
-
-    for f in present_flowers:
+    for f in flower_counts.keys():
         if total_flowers == 0:
             break
 
@@ -221,28 +219,21 @@ class Suitor(BaseSuitor):
         self.day_count += 1
         if self.day_count >= self.first_pruning:
             bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts)
-            for b in bouquets:
-                s, r, v = b
-                self.bouquet_feedback[r]["color"].append(bouquet_to_dictionary(v, "color"))
-                self.bouquet_feedback[r]["size"].append(bouquet_to_dictionary(v, "size"))
-                self.bouquet_feedback[r]["type"].append(bouquet_to_dictionary(v, "type"))
-            return bouquets
+        else:
+            bouquets = list()
+            recipient_ids = self.recipient_ids.copy()
+            random.shuffle(recipient_ids)
+            for r_id in recipient_ids:
+                flower_counts, b = arrange_random(flower_counts)
+                bouquets.append((self.suitor_id, r_id, b))
 
-        send = dict()
-        recipient_ids = self.recipient_ids.copy()
-        random.shuffle(recipient_ids)
-        for r_id in recipient_ids:
-            flower_counts, send[r_id] = arrange_random(flower_counts)
+        for b in bouquets:
+            _, r, v = b
+            self.bouquet_feedback[r]["color"].append(bouquet_to_dictionary(v, "color"))
+            self.bouquet_feedback[r]["size"].append(bouquet_to_dictionary(v, "size"))
+            self.bouquet_feedback[r]["type"].append(bouquet_to_dictionary(v, "type"))
 
-        # needed for estimation
-        res = []
-        for k, v in send.items():
-            res.append((self.suitor_id, k, v))
-            self.bouquet_feedback[k]["color"].append(bouquet_to_dictionary(v, "color"))
-            self.bouquet_feedback[k]["size"].append(bouquet_to_dictionary(v, "size"))
-            self.bouquet_feedback[k]["type"].append(bouquet_to_dictionary(v, "type"))
-
-        return res
+        return bouquets
 
     def zero_score_bouquet(self):
         """

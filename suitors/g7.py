@@ -36,7 +36,7 @@ class Suitor(BaseSuitor):
             player: 
         """
         base_weight = 0.05
-
+        self.score1bouqs = {}
         all_ids = np.arange(num_suitors)
         recipient_ids = all_ids[all_ids != suitor_id]
         for i in recipient_ids:
@@ -68,10 +68,16 @@ class Suitor(BaseSuitor):
     # Random bouquet building
     def _prepare_bouquet(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
-        if (num_remaining!=0):
-            size = int(np.random.randint(1,min(MAX_BOUQUET_SIZE,num_remaining)+1))
-        else: 
-            size =0
+        if (self.days_remaining==2): #first day
+            size = 6
+        else:
+             if (num_remaining!=0):
+                size = int(np.random.randint(1,min(MAX_BOUQUET_SIZE,num_remaining)+1))
+             else: 
+                size =0
+            #size = int(np.random.randint(0,min(MAX_BOUQUET_SIZE,num_remaining)+1))
+        
+           
         if size > 0:
             chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size, ), replace=False)
             chosen_flower_counts = dict(Counter(chosen_flowers))
@@ -140,32 +146,59 @@ class Suitor(BaseSuitor):
         num_remaining = sum(remaining_flowers.values())
         #size = np.argmax(self.weights[recipient_id]['number'])
         #when multiple number weights have the same value argmax returns the smallest index which is usually 0. I changed it to return the maximum index
-        maximum = -100
-        size = 0
-        for i in range(0,len((self.weights[recipient_id]['number']))):
-            if (self.weights[recipient_id]['number'][i] >= maximum):
-                maximum = self.weights[recipient_id]['number'][i]
-                size = i
-        if size > 0:
-            scored_flowers = []
-            for flower in remaining_flowers.keys():
-                reward = 0
-                reward += self.weights[recipient_id]['sizes'][flower.size]
-                reward += self.weights[recipient_id]['colors'][flower.color]
-                reward += self.weights[recipient_id]['types'][flower.type]
-                for i in range(remaining_flowers[flower]):
-                    scored_flowers.append([flower, reward])
-            scored_flowers = sorted(scored_flowers, key=lambda item: item[1], reverse=True)
+        changes = 0
+
+        if ( recipient_id in self.score1bouqs.keys()):
             
-            chosen_flowers = []
-            for cf in scored_flowers[:size-1]:
-                chosen_flowers.append(cf[0])
-            chosen_flower_counts = dict(Counter(chosen_flowers))
-            for k, v in chosen_flower_counts.items():
-                remaining_flowers[k] -= v
-                assert remaining_flowers[k] >= 0
-        else: # empty is optimal but do we want to give that?
-            chosen_flower_counts = dict()
+            best_bouquet = self.score1bouqs[recipient_id][0]
+            num_remaining = sum(remaining_flowers.values())
+            size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
+            if size > 0:
+                chosen_flower_counts = dict()
+                for flower, count in best_bouquet.items():
+                    if (flower in remaining_flowers):
+                        if remaining_flowers[flower] >= count:
+                            chosen_flower_counts[flower] = count
+                        elif remaining_flowers[flower] > 0:
+                            chosen_flower_counts[flower] = remaining_flowers[flower]
+                            changes += count - remaining_flowers[flower]
+                        else:
+                            changes += count
+                    else:
+                        #chosen_flower_counts = dict()
+                        changes += 12
+            else:
+                chosen_flower_counts = dict()
+                changes = 0
+
+        if (not(recipient_id in self.score1bouqs.keys()) or changes >2):    
+            maximum = -100
+            size = 0
+            for i in range(0,len((self.weights[recipient_id]['number']))):
+                if (self.weights[recipient_id]['number'][i] >= maximum):
+                    maximum = self.weights[recipient_id]['number'][i]
+                    size = i
+            if size > 0:
+                scored_flowers = []
+                for flower in remaining_flowers.keys():
+                    reward = 0
+                    reward += self.weights[recipient_id]['sizes'][flower.size]
+                    reward += self.weights[recipient_id]['colors'][flower.color]
+                    reward += self.weights[recipient_id]['types'][flower.type]
+                    for i in range(remaining_flowers[flower]):
+                        scored_flowers.append([flower, reward])
+                scored_flowers = sorted(scored_flowers, key=lambda item: item[1], reverse=True)
+                
+                chosen_flowers = []
+                for cf in scored_flowers[:size-1]:
+                    chosen_flowers.append(cf[0])
+                chosen_flower_counts = dict(Counter(chosen_flowers))
+                for k, v in chosen_flower_counts.items():
+                    remaining_flowers[k] -= v
+                    assert remaining_flowers[k] >= 0
+            else: # empty is optimal but do we want to give that?
+                chosen_flower_counts = dict()
+        
         chosen_bouquet = Bouquet(chosen_flower_counts)
 
         self.bouq_Dict[recipient_id].append([chosen_flower_counts, -1, -1, -1])
@@ -246,11 +279,14 @@ class Suitor(BaseSuitor):
                 bouqs = self.bouq_Dict[i]
                 highest = 0
                 for bouq in bouqs:
+                    print(bouq[1])
                     if (bouq[1]==1.0):
                         already_know = 1
-                    score_prio = bouq[1] * ((self.num_suitors - bouq[2])/bouq[3])*((self.num_suitors - bouq[3])/(self.num_suitors-1))
+                    score_prio = bouq[1] * ((self.num_suitors - bouq[2])/(self.num_suitors - 1))*((self.num_suitors - bouq[3])/(self.num_suitors-1))
+                    
                     if score_prio > highest:
                         highest = score_prio
+                       
                 if (already_know):
                     score_Dict[i] = 0 #do not care about this player since his optimal weights have already been configured
                 else:
@@ -427,6 +463,9 @@ class Suitor(BaseSuitor):
             lastbouquet[2] = feedback[id][0]
             lastbouquet[3] = feedback[id][2]
             self.bouq_Dict[id][-1] = lastbouquet
+
+            if (feedback[id][1]==1.0):
+                self.score1bouqs[id] = (lastbouquet[0] , lastbouquet[3])
 
             # estimate reward w current weights
             flower_dict = {

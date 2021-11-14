@@ -90,7 +90,7 @@ def estimate_flowers_in_bouquets(color_weights, size_weights, type_weights, flow
             flower_counts[f] -= 1
             flowers[f] += 1
 
-    return flowers
+    return flower_counts, flowers
 
 
 def decide_bouquet(flowers1, flowers2):
@@ -123,11 +123,11 @@ def learned_bouquets(bouquet_feedback, suitor, flower_counts):
         flowers1 = {"color": color_weights, "size": size_weights, "type": type_weights}
         flowers2 = best_given_bouquet(bouquet_feedback[recipient])
         flowers = decide_bouquet(flowers1, flowers2)
-        bouquet = Bouquet(
-            estimate_flowers_in_bouquets(flowers["color"], flowers["size"], flowers["type"], flower_counts))
+        flower_counts, r = estimate_flowers_in_bouquets(flowers["color"], flowers["size"], flowers["type"], flower_counts)
+        bouquet = Bouquet(r)
         res.append((suitor, recipient, bouquet))
 
-    return res
+    return flower_counts, res
 
 
 def learned_weightage(bouquet_feedback, factor):
@@ -222,7 +222,7 @@ class Suitor(BaseSuitor):
         """
         self.day_count += 1
         if self.day_count >= self.first_pruning:
-            bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts)
+            flower_counts, bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts.copy())
         else:
             bouquets = list()
             recipient_ids = self.recipient_ids.copy()

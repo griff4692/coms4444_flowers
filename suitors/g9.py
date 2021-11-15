@@ -266,7 +266,11 @@ class Suitor(BaseSuitor):
         """
         score = 0
         for color in colors:
-            score += colors[color] * self.color_score.index(color)
+            # do some normalization
+            if self.color_score.index(color)==5:
+                score += colors[color] * self.color_score.index(color)
+            else:
+                score += colors[color] * self.color_score.index(color) / 2
         return score / 130
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):# max 3/13
@@ -276,7 +280,10 @@ class Suitor(BaseSuitor):
         """
         score = 0
         for size in sizes:
-            score += sizes[size] * self.size_score.index(size)
+            if self.size_score.index(size) == 2:
+                score += sizes[size] * self.size_score.index(size)
+            else:
+                score += sizes[size] * self.size_score.index(size) / 2
         return score / 104
     
     def receive_feedback(self, feedback):

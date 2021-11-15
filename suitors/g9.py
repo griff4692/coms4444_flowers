@@ -82,8 +82,19 @@ class Suitor(BaseSuitor):
         num_remaining = sum(remaining_flowers.values())
         size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
         if size > 0:
-            chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size, ), replace=False)
-            chosen_flower_counts = dict(Counter(chosen_flowers))
+            counter = 0
+            while counter < 10:
+                chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size, ), replace=False)
+                chosen_flower_counts = dict(Counter(chosen_flowers))
+                colors, types, sizes = self.bouquet_to_elements(Bouquet(chosen_flower_counts))
+                same_bouquet = False
+                for (rec_types, res_colors, res_sizes, res_score) in self.all_bouquets_by_element[recipient_id]:
+                    if types == rec_types and colors == res_colors and sizes == res_sizes:
+                        same_bouquet = True
+                if same_bouquet:
+                    counter += 1
+                else:
+                    counter = 10
             for k, v in chosen_flower_counts.items():
                 remaining_flowers[k] -= v
                 assert remaining_flowers[k] >= 0

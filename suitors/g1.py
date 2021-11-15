@@ -83,7 +83,6 @@ class Suitor(BaseSuitor):
             probability_table_list[key] = list(probability_table[key].items())
 
         while remain_probability > 0:
-            # TODO: think of a way to break the remain_probability, what's the exact value, here I just assume 10^-5
             if remain_probability < diff:
                 break
             # we don't consider the empty flowers to be score 1
@@ -95,10 +94,7 @@ class Suitor(BaseSuitor):
 
     # for each player, randomly guess what they want if we haven't got score 1 for their group
     def _prepare_bouquet(self, remaining_flowers, recipient_id):
-        # TODO: if we got 1.0 score from that group before, skip it or we should keep guessing,
-        #  because we may not get that 1 score in the final round given by the flowers
-
-        if self.has_our_strat[recipient_id] == 0 and self.score_1_bouquet[recipient_id] != None:
+        if self.has_our_strat[recipient_id] == 0 and self.score_1_bouquet[recipient_id] is not None:
 
             flowers_sent = self.score_1_bouquet[recipient_id]
 
@@ -294,7 +290,6 @@ class Suitor(BaseSuitor):
 
         return Bouquet(flowers)
 
-    # TODO: maybe consider types in the future
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
         :param types: dictionary of flower types and their associated counts in the bouquet
@@ -323,7 +318,6 @@ class Suitor(BaseSuitor):
 
         return 0
 
-    # TODO: maybe consider sizes in the future
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
@@ -342,9 +336,6 @@ class Suitor(BaseSuitor):
                 continue
             rank, score, _ = feedback[recipient_id]
             flower_sent = self.bouquet_history[recipient_id][-1]
-            # flower_tuple = []
-            # for flower, count in flower_sent.items():
-            #     flower_tuple.append((flower, count))
 
             self.bouquet_history_score[recipient_id][score] = flower_sent
             self.recipients_largest_score_[recipient_id] = max(self.recipients_largest_score_[recipient_id], score)
@@ -356,12 +347,12 @@ class Suitor(BaseSuitor):
             if self.has_our_strat[recipient_id] == 0 and flower_sent:
                                              
                 # no bouquet saved yet
-                if self.score_1_bouquet[recipient_id] == None:
-                    if score == 1:
+                if self.score_1_bouquet[recipient_id] is None:
+                    if int(score) == 1:
                         self.score_1_bouquet[recipient_id] = dict(flower_sent)
                         self.our_strat_count[recipient_id] -= 1
                 else:
-                    if score == 1:
+                    if int(score) == 1:
                         self.our_strat_count[recipient_id] -= 1
 
                         if self.our_strat_count[recipient_id] == 0:

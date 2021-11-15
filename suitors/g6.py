@@ -14,8 +14,8 @@ from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, get
 from utils import flatten_counter
 from suitors.base import BaseSuitor
 
-import time
-import pdb
+# import time
+# import pdb
 
 
 class Suitor(BaseSuitor):
@@ -36,7 +36,7 @@ class Suitor(BaseSuitor):
         self.all_possible_flowers = dict(zip(self.all_possible_flower_keys, [0] * self.NUM_ALL_POSSIBLE_FLOWERS))
         self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
 
-        self.priority = None
+        self.priority = [i for i in list(range(num_suitors)) if i != suitor_id]
         super().__init__(days, num_suitors, suitor_id, name='g6')
 
 
@@ -132,8 +132,8 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
-        all_ids = np.arange(self.num_suitors)
-        recipient_ids = all_ids[all_ids != self.suitor_id]
+        # all_ids = np.arange(self.num_suitors)
+        # recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
 
         # keys across days for flowers are str(flower) so need to have matching from str(flower) back to flower object
@@ -142,8 +142,7 @@ class Suitor(BaseSuitor):
             rem_flower_key_pairs[str(f)] = f
 
         bouquets = []
-
-        for i in range(len(recipient_ids)):
+        for i in range(len(self.priority)):
             if self.curr_day != 0 and self.score_hist[i][-1] == 1: # already know best bouquet possible
                 if self.curr_day == self.days - 1: # last day so give best bouquet
                     # ensure have the flowers to do so
@@ -158,7 +157,8 @@ class Suitor(BaseSuitor):
 
                         continue
                 else: # not last day so give empty bouquet to save flowers since already know bouquet is correct
-                    bouquets.append((self.suitor_id, recipient_ids[i], Bouquet({}))) # give empty
+                    # bouquets.append((self.suitor_id, recipient_ids[i], Bouquet({})))  # give empty
+                    bouquets.append((self.suitor_id, self.priority[i], Bouquet({})))  # give empty
 
                     self.bouquet_hist[i].append(self.bouquet_hist[i][-1]) # pretending we are giving best bouquet
                     self.arrangement_hist[i].append(self.arrangement_hist[i][-1])
@@ -167,7 +167,8 @@ class Suitor(BaseSuitor):
             if self.curr_day > 1 and self.curr_day > int(self.days * 0.3): # giving bouquet using best guess from Linear Regression
                 # getting all valid flower combinations for each person -- so know best bouquet is valid
                 all_possible_bouquets_arr = self._get_all_possible_bouquets_arr(remaining_flowers)
-                #MIA SAYS UNCOMMENT THIS LINE self._extract_the_dimensions(all_possible_bouquets_arr)
+                #MIA SAYS UNCOMMENT THIS LINE
+                self._extract_the_dimensions(all_possible_bouquets_arr)
                 all_possible_bouquets_nparr = np.array(all_possible_bouquets_arr)
                 hist_nparr = np.asarray(self.arrangement_hist[i], dtype=int)
 
@@ -195,14 +196,16 @@ class Suitor(BaseSuitor):
                 else:
                     best_bouquet = Bouquet(dict())
 
-                bouquets.append((self.suitor_id, recipient_ids[i], best_bouquet))
+                # bouquets.append((self.suitor_id, recipient_ids[i], best_bouquet))
+                bouquets.append((self.suitor_id, self.priority[i], best_bouquet))
                 self.arrangement_hist[i].append(best_flowers)
                 self.bouquet_hist[i].append(best_bouquet)
 
             else: # give random bouquet to get more data for Linear Regression
                 arrangement_len = len(self.arrangement_hist[i]) if self.curr_day != 0 else 1
                 for _ in range(arrangement_len):
-                    suitor_id, recipient_id, chosen_bouquet = self._prepare_rand_bouquet(remaining_flowers, recipient_ids[i])
+                    # suitor_id, recipient_id, chosen_bouquet = self._prepare_rand_bouquet(remaining_flowers, recipient_ids[i])
+                    suitor_id, recipient_id, chosen_bouquet = self._prepare_rand_bouquet(remaining_flowers, self.priority[i])
 
                     b_dict = dict()
                     for k, v in chosen_bouquet.arrangement.items():
@@ -313,10 +316,9 @@ class Suitor(BaseSuitor):
         :return: nothing
         """
 
-        recipients = range(len(feedback) - 1)
-        self.priority = [x[1] for x in sorted(zip([f for f in feedback if f[1] != float('-inf')], list(recipients)), key = lambda k: (k[0][2], k[0][0], -k[0][1]))]
+        self.priority = [x[1] for x in sorted(zip(feedback, list(range(len(feedback)))), key = lambda k: (k[0][2], k[0][0], -k[0][1])) if x[0][1] != float('-inf')]
 
-        scores = [feedback[i][1] for i in recipients if feedback[i][1] != float('-inf')]
+        scores = [feedback[i][1] for i in range(len(feedback)) if feedback[i][1] != float('-inf')]
 
         for i in range(self.num_suitors - 1):
             if self.curr_day == 1:

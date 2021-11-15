@@ -111,7 +111,6 @@ class Suitor(BaseSuitor):
         target_bouquets.sort(key=lambda x : x[2], reverse=True)
         return target_bouquets
 
-
     def construct_similar_bouquet(self, flower_counts: Dict[Flower, int], target_bouquet: Bouquet):
         bouquet_dict = {}
         while True:
@@ -129,12 +128,12 @@ class Suitor(BaseSuitor):
 
             flower_counts[flower_to_add] -= 1
             self.reduce_bouquet(flower_to_add, target_bouquet)
-            
+
             if flower_to_add not in bouquet_dict:
                 bouquet_dict[flower_to_add] = 1
             else:
                 bouquet_dict[flower_to_add] += 1
-        return Bouquet(bouquet_dict)
+        return bouquet_dict
 
     def reduce_bouquet(self, flower, bouquet):
         if flower.size in bouquet.sizes and bouquet.sizes[flower.size] > 0:
@@ -158,8 +157,27 @@ class Suitor(BaseSuitor):
     def jy_prepare_final_bouquets(self, flower_counts: Dict[Flower, int]):
         target_bouquets = self.get_target_bouquets() # Each element form of (sid, Bouquet, player_diff)
         ret = []
+        bouquet_dicts = []
         for sid, target_bouquet, _ in target_bouquets:
-            ret.append((self.suitor_id, sid, self.construct_similar_bouquet(flower_counts, target_bouquet)))
+            bouquet_dicts.append((sid, self.construct_similar_bouquet(flower_counts, target_bouquet), target_bouquet))
+            #ret.append((self.suitor_id, sid, self.construct_similar_bouquet(flower_counts, target_bouquet)))
+        for sid, bouquet_dict, target_bouquet in bouquet_dicts:
+            while len(bouquet_dict) < len(target_bouquet.arrangement):
+                found_flower = False
+                for flower, count in flower_counts.items():
+                    if count is 0:
+                        continue
+                    else:
+                        found_flower = True
+                        if flower not in bouquet_dict:
+                            bouquet_dict[flower] = 1
+                        else:
+                            bouquet_dict[flower] += 1
+                        flower_counts[flower] -= 1
+                        break
+                if not found_flower:
+                    break
+            ret.append((self.suitor_id, sid, Bouquet(bouquet_dict)))
         return ret
 
     @staticmethod

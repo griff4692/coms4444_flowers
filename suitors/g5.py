@@ -1,6 +1,7 @@
 import collections
 import heapq
 import random
+import math
 from dataclasses import dataclass
 from typing import Dict, Tuple, List, Union
 
@@ -86,7 +87,7 @@ class Suitor(BaseSuitor):
         self.bad_color_enum = FlowerColors(bad_color_num)
 
         # New bouquet setup
-        self.n_flowers = 2
+        self.n_flowers = math.ceil(math.log(num_suitors * days) / math.log(8))
         self.ideal_bouquet: Bouquet = random_bouquet(self.n_flowers)
 
     @staticmethod
@@ -110,18 +111,18 @@ class Suitor(BaseSuitor):
             return fb.score
 
         self.feedback.sort(key=key_func, reverse=True)
-        final_bouquets = []
+        final_bouquets = {n: (self.suitor_id, n, Bouquet({})) for n in range(self.num_suitors)}
+        del final_bouquets[self.suitor_id]
         already_prepared = set()
         for fb in self.feedback:
             fb: SuitorFeedback = fb
             if fb.suitor in already_prepared:
                 continue
             if self.can_construct(fb.bouquet, flower_counts):
-                final_bouquets.append((self.suitor_id, fb.suitor, fb.bouquet))
+                final_bouquets[fb.suitor] = (self.suitor_id, fb.suitor, fb.bouquet)
                 flower_counts = self.reduce_flowers(fb.bouquet, flower_counts)
                 already_prepared.add(fb.suitor)
-
-        return final_bouquets
+        return list(final_bouquets.values())
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]) -> List[Tuple[int, int, Bouquet]]:
         """
@@ -164,7 +165,7 @@ class Suitor(BaseSuitor):
                 matching -= c
         if matching <= 0:
             return 0.0
-        return max_score / (self.n_flowers - matching + 1)
+        return max_score / 2**(self.n_flowers - matching)
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """

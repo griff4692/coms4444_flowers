@@ -27,6 +27,7 @@ class Suitor(BaseSuitor):
             random.shuffle(self.size_weights)
             # pick one attribute to null
             self.null = random.randint(0,2) # 0=type, 1=color, 2=size
+            self.adjust_weights_number()
         elif self.days==1:
             self.alloptions = []
             for n in range(1, 13):
@@ -46,9 +47,6 @@ class Suitor(BaseSuitor):
             self.given[suitor] = [] # list for each suitor, will be list of lists with [bouquet, score]
         self.days_left = days
         self.day_number = 0
-        self.prefs = {}
-        self.initialize_preferences()
-        self.controlled_strat = {}
         self.initalize_controlled_strat()
         self.suitors_to_test = list(self.recipient_ids)
 
@@ -119,7 +117,12 @@ class Suitor(BaseSuitor):
                 if param in sizes:
                     i = sizes.index(param)
                     preferences["size"][i] = val
+            # TODO: Can modify this. Normalizing the scores after controlled experiment
+            preferences["color"] = [float(i)/(max(preferences["color"]) + 1e-6) for i in preferences["color"]]
+            preferences["size"] = [float(i) / (max(preferences["size"]) + 1e-6) for i in preferences["size"]]
+            preferences["type"] = [float(i) / (max(preferences["type"]) + 1e-6) for i in preferences["type"]]
             scores_by_attribute[suitor] = preferences
+        print(scores_by_attribute)
         return scores_by_attribute
 
     def scores_per_player(self, given):
@@ -177,20 +180,18 @@ class Suitor(BaseSuitor):
 
         To get the list of suitor ids not including yourself, use the following snippet:"""
 
-        self.day_number += 1
-        # if self.day_number == self.days:
-        #     scores_per_player = self.convert_prefs_to_scores_per_player()
-        #     # scores_per_player is already excluding us, and is in order of the other suitors (index = suitor)
-        #     chosen_bouquets = self.best_bouquets(flower_counts.copy(), scores_per_player)
-        #     bouquets = []
-        #     for suitor in chosen_bouquets:
-        #         bouquets.append((self.suitor_id, suitor, Bouquet(chosen_bouquets[suitor])))
-        #     print(str(self.suitor_id) + str(self.size_weights) +str(self.type_weights) + str(self.color_weights))
-        #     return bouquets
-        # if self.suitors_to_test:
-        #     return self.use_controlled_strategy(flower_counts.copy())
-        # return {}
-
+        if self.days > 30:
+            self.day_number += 1
+            if self.day_number == self.days:
+                scores_per_player = self.convert_prefs_to_scores_per_player()
+                # scores_per_player is already excluding us, and is in order of the other suitors (index = suitor)
+                chosen_bouquets = self.best_bouquets(flower_counts.copy(), scores_per_player)
+                bouquets = []
+                for suitor in chosen_bouquets:
+                    bouquets.append((self.suitor_id, suitor, Bouquet(chosen_bouquets[suitor])))
+                # print(str(self.suitor_id) + str(self.size_weights) +str(self.type_weights) + str(self.color_weights))
+                return bouquets
+            return self.use_controlled_strategy(flower_counts.copy())
 
 
         # this loop inputs the score for each bouquet we gave last round
@@ -344,10 +345,31 @@ class Suitor(BaseSuitor):
             score = 0
 
         # count number of flowers for the last .25
-        weights_number = [0, .05, .18, .32, .48, .72, .85, 1, 1, 1, 1, 1, 1]
-        score_count = weights_number[total]*.2
+        # weights_number = [0, .05, .18, .32, .48, .72, .85, 1, 1, 1, 1, 1, 1]
+        score_count = self.weights_number[total]*.2
 
         return score+score_count
+
+    def adjust_weights_number(self):
+        num_one_flowers = [4, 6, 3][self.null]
+        max_flowers = 6 * (self.num_suitors - 1)
+        expected_count = max(1, max_flowers // 72)
+        max_bouquet_size = min(9, num_one_flowers * expected_count)
+        weights_number = [0] + [1] * 12
+        '''
+        Use exponential curve to map weights for number of flowers in bouquet
+        Want a curve such that value at max_bouquet_size is 1, and value at 0 is 0
+        Let f(x) = e^(ax) - 1
+        Let t = max_bouquet_size
+        f(t) = 1 = e^(at) - 1 => a = ln2/t
+        '''
+        t = max_bouquet_size
+        a = math.log(2)/t
+        for i in range(1, t):
+            temp = math.exp(a * i) - 1
+            weights_number[i] = round(temp, 4)
+        self.weights_number = weights_number
+        self.personal_max_bouquet_size = max_bouquet_size
 
     def receive_feedback(self, feedback):
         """
@@ -356,26 +378,10 @@ class Suitor(BaseSuitor):
         """
         self.feedback.append(feedback)
 
-    def initialize_preferences(self):
-        for suitor in self.recipient_ids:
-            self.prefs[suitor] = {
-                "Small" : 0,
-                "Medium" : 0,
-                "Large" : 0,
-                "White" : 0,
-                "Yellow" : 0,
-                "Red" : 0,
-                "Purple" : 0,
-                "Orange" : 0,
-                "Blue" : 0,
-                "Rose" : 0,
-                "Chrysanthemum" : 0,
-                "Tulip" : 0,
-                "Begonia" : 0,
-                "None" : 0
-            }
-
     def initalize_controlled_strat(self):
+        self.prefs = {}
+        self.controlled_strat = {}
+        self.controlled_given = {}
         for suitor in self.recipient_ids:
             self.controlled_strat[suitor] = {
                 "colors" : [c for c in FlowerColors],
@@ -384,8 +390,25 @@ class Suitor(BaseSuitor):
                 "const_params_color" : [],
                 "const_params_type": [],
                 "const_params_size": [],
-                "tested_param" : None
+                "tested_param" : ""
             }
+            self.prefs[suitor] = {
+                "Small": 0,
+                "Medium": 0,
+                "Large": 0,
+                "White": 0,
+                "Yellow": 0,
+                "Red": 0,
+                "Purple": 0,
+                "Orange": 0,
+                "Blue": 0,
+                "Rose": 0,
+                "Chrysanthemum": 0,
+                "Tulip": 0,
+                "Begonia": 0,
+                "None": 0
+            }
+            self.controlled_given[suitor] = []
 
     def start_controlled_color(self, suitor, flower):
         self.controlled_strat[suitor]["colors"].remove(flower.color)
@@ -405,7 +428,7 @@ class Suitor(BaseSuitor):
     def update_preferences(self):
         if self.day_number > 1:
             latest_feedback = self.feedback[-1]
-            for suitor in self.suitors_to_test:
+            for suitor in self.tested_suitors:
                 self.prefs[suitor][self.controlled_strat[suitor]["tested_param"]] = latest_feedback[suitor][1]
 
     def get_flowers_to_test(self, flowers_in_market, suitor):
@@ -451,7 +474,9 @@ class Suitor(BaseSuitor):
     def use_controlled_strategy(self, remaining_flowers):
         chosen_bouquets = {}
         flowers_in_market = flatten_counter(remaining_flowers)
+        remaining_receipients = list(self.recipient_ids)
         self.update_preferences()
+        self.tested_suitors = []
         for suitor in list(self.suitors_to_test):
             all_tested = False
             if self.day_number == 1:
@@ -469,11 +494,30 @@ class Suitor(BaseSuitor):
             if chosen_flower is not None:
                 chosen_bouquets[suitor] = chosen_flower
                 flowers_in_market.remove(chosen_flower)
+                remaining_receipients.remove(suitor)
+                self.tested_suitors.append(suitor)
             if all_tested:
                 self.suitors_to_test.remove(suitor)
 
         bouquets = []
+        random_bouquets = list(
+            map(lambda recipient_id: self._prepare_random_bouquet(flowers_in_market, recipient_id), remaining_receipients))
+        for bouquet in random_bouquets:
+            # TODO: Do something with these values
+            self.controlled_given[bouquet[1]].append([bouquet[2], 0])
         for k, v in chosen_bouquets.items():
             bouquets.append((self.suitor_id, k, Bouquet({v: 1})))
+        return bouquets + random_bouquets
 
-        return bouquets
+    def _prepare_random_bouquet(self, remaining_flowers, recipient_id):
+        num_remaining = len(remaining_flowers)
+        size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
+        if size > 0:
+            chosen_flowers = np.random.choice(remaining_flowers, size=(size, ), replace=False)
+            chosen_flower_counts = dict(Counter(chosen_flowers))
+            for flower in chosen_flowers:
+                remaining_flowers.remove(flower)
+        else:
+            chosen_flower_counts = dict()
+        chosen_bouquet = Bouquet(chosen_flower_counts)
+        return self.suitor_id, recipient_id, chosen_bouquet

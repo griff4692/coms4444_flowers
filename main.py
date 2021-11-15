@@ -30,7 +30,8 @@ class FlowerMarriageGame:
         if args.from_config:
             config_df = pd.read_csv(args.config_path)
             self.d = int(config_df.loc[config_df['group'] == 'd', 'counts'].iloc[0])
-            config_df = config_df[(config_df['group'] != 'd') & (config_df['counts'] > 0)]
+            self.random_state = config_df.loc[config_df['group'] == 'random_state', 'counts'].iloc[0]
+            config_df = config_df[(~config_df['group'].isin({'d', 'random_state'})) & (config_df['counts'] > 0)]
             assert len(config_df) > 0
             self.suitor_names = flatten_counter(dict(zip(config_df['group'], config_df['counts'])))
             self.p = config_df.counts.sum()
@@ -38,7 +39,9 @@ class FlowerMarriageGame:
             self.p = args.p
             self.d = args.d
             self.suitor_names = [args.group] * self.p
+            self.random_state = args.random_state
         assert self.p >= 2 and self.p % 2 == 0
+        np.random.seed(self.random_state)
 
         self.gui = args.gui
         self.possible_flowers = get_all_possible_flowers()
@@ -81,7 +84,7 @@ class FlowerMarriageGame:
         self.next_round = self.d
         return self.marry_folks()
 
-    def generate_output_df(self, seed):
+    def generate_output_df(self):
         output = []
         # self.marriages
         for i in range(self.p):
@@ -108,7 +111,7 @@ class FlowerMarriageGame:
             row = {
                 'suitor_id': suitor_id,
                 'name': suitor_name,
-                'random_state': seed,
+                'random_state': self.random_state,
                 'p': self.p,
                 'd': self.d,
                 'uid': uid,
@@ -320,11 +323,9 @@ if __name__ == '__main__':
     parser.add_argument('-save_results', default=False, action='store_true')
 
     args = parser.parse_args()
-
-    np.random.seed(args.random_state)
     game = FlowerMarriageGame(args)
     game.play()
     if args.save_results:
-        output_df = game.generate_output_df(seed=args.random_state)
+        output_df = game.generate_output_df()
         out_fn = os.path.join('results', f'{args.run_id}.csv')
         output_df.to_csv(out_fn, index=False)

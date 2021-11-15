@@ -33,10 +33,19 @@ class Suitor(BaseSuitor):
         self.train_feedback = np.zeros((len(self.recipient_ids), 6, 4, 3))  # feedback score from other recipients
         self.last_bouquet = None  # bouquet we gave out from the last turn
         self.control_group_assignments = self._assign_control_groups()
-
-        self.best_arrangement = self.generate_random_bouquet()
-        self.best_arrangement_size_vec, self.best_arrangement_color_vec, self.best_arrangement_type_vec = \
-            self.get_bouquet_score_vectors(self.best_arrangement)
+        round_approx = days * num_suitors
+        fix1y = 45
+        slope = (5 - fix1y) / (365 * 6 - (3*6)) 
+        calculatedPoint = math.ceil(slope * (round_approx - 3*6) + fix1y)
+        bouquets_to_generate = max(calculatedPoint, 5) 
+        print(f'g4: generating {bouquets_to_generate}')
+        self.best_arrangement = [self.generate_random_bouquet() for _ in range(bouquets_to_generate)]
+        self.sizev, self.colorv, self.typev = [], [], []
+        for arrangement in self.best_arrangement:
+            s,c,v = self.get_bouquet_score_vectors(arrangement)
+            self.sizev.append(s)
+            self.colorv.append(c)
+            self.typev.append(v)
         self.experiments = {}
         for i in range(num_suitors):
             if i != suitor_id:
@@ -74,7 +83,7 @@ class Suitor(BaseSuitor):
 
     def compute_euc_dist(self, v1, v2):
         # can make higher norm to increase steepness?
-        return np.linalg.norm(np.array(v1) - np.array(v2))
+        return np.linalg.norm(np.array(v1) - np.array(v2), ord = 4)
 
     def compute_distance_heuristic(self, v1, v2):
         # v1 and v2 bounded from 0 to inf
@@ -88,12 +97,12 @@ class Suitor(BaseSuitor):
         threshold_vect = [0] * len(v1)
         threshold_vect[0] = 12
         THRESHOLD = 1 / (
-                np.linalg.norm(
-                    np.array(threshold_vect) -
-                    np.array([most_even_dist] * len(v1))
-                ) + 1
-        )
-        dist = 1 / (self.compute_euc_dist(v1, v2) + 1)
+            np.linalg.norm(
+                np.array(threshold_vect)-
+                np.array([most_even_dist] * len(v1))
+            ) + 1
+        ) 
+        dist =  1 / (self.compute_euc_dist(v1,v2) ** 3 + 1)
         return dist if dist > THRESHOLD else 0
 
     def _assign_control_groups(self):
@@ -453,6 +462,7 @@ class Suitor(BaseSuitor):
         # is there a guaranteed min?
         # i think the min is when we pick one attribute with 12 flowers, which is minimal in the best_arrangement vector
         # someone check that logic but I think it works?
+        size_v, color_v, type_v = self.vectorReps[0]
         worstFlower = Flower(
             size=self.get_min_vector_attribute(self.best_arrangement_size_vec, FlowerSizes),
             color=self.get_min_vector_attribute(self.best_arrangement_color_vec, FlowerColors),
@@ -469,7 +479,7 @@ class Suitor(BaseSuitor):
         :return: a Bouquet for which your scoring function will return 1
         """
         # the below is still true
-        return self.best_arrangement
+        return list(self.best_arrangement)[0]
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
@@ -481,8 +491,8 @@ class Suitor(BaseSuitor):
 
         for key, value in types.items():
             vector[key.value] = value
-
-        return self.compute_distance_heuristic(vector, self.best_arrangement_type_vec) * 1.0 / 3.0
+        res = [self.compute_distance_heuristic(vector, x) for x in self.typev]
+        return max(res) * 1.0/3.0
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
@@ -493,8 +503,8 @@ class Suitor(BaseSuitor):
 
         for key, value in colors.items():
             vector[key.value] = value
-
-        return self.compute_distance_heuristic(vector, self.best_arrangement_color_vec) * 1.0 / 3.0
+        res = [self.compute_distance_heuristic(vector, x) for x in self.colorv]
+        return max(res) * 1.0/3.0
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
@@ -505,8 +515,8 @@ class Suitor(BaseSuitor):
 
         for key, value in sizes.items():
             vector[key.value] = value
-
-        return self.compute_distance_heuristic(vector, self.best_arrangement_size_vec) * 1.0 / 3.0
+        res = [self.compute_distance_heuristic(vector, x) for x in self.sizev]
+        return max(res) * 1.0/3.0
 
     def receive_feedback(self, feedback):
         """

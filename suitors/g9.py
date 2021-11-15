@@ -273,7 +273,8 @@ class Suitor(BaseSuitor):
             for bouquet in self.all_bouquets_by_element[player]:
                 score += bouquet[-1]
                 scores.append(bouquet[-1])
-            percentage_75_score = statistics.quantiles(scores, n = 4)[2]
+            sorted_scores = sorted(scores)
+            percentage_75_score = sorted_scores[round(3*len(sorted_scores)/4)]
             players_scores.append((percentage_75_score, player, percentage_75_score))
         players_ranking = sorted(players_scores, reverse=True)
         return players_ranking

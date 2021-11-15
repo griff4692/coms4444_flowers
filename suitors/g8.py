@@ -6,6 +6,7 @@ import random
 import numpy as np
 from constants import MAX_BOUQUET_SIZE
 from utils import flatten_counter
+import itertools
 
 
 class Suitor(BaseSuitor):
@@ -52,10 +53,10 @@ class Suitor(BaseSuitor):
         # First list accessed with key "saved_set", second with "rank".
         self.priority = {}
 
-    def get_all_possible_bouquets_size_6(flowers: Dict[Flower, int]):
+    def get_all_possible_bouquets_size_6(self, flowers: Dict[Flower, int]):
         flat_flower = flatten_counter(flowers)
-        bouquets = [Bouquet({})]
-        for size in range(1, 6):
+        bouquets = []
+        for size in range(1, 7):
             size_bouquets = list(set(list(itertools.combinations(flat_flower, size))))
             bouquets += size_bouquets
         return bouquets
@@ -89,22 +90,29 @@ class Suitor(BaseSuitor):
             while(i < suitor_data[1]):
                 # Get saved bouquet and get its score per attr
                 bouquet = self.remember_high_scores[suitor_data[0]][i][0]
-                score_attr = self.get_score_per_attr(bouquet)
-
+                #print("in best_bouquet")
+                #print(bouquet)
+                score_attr = self.get_score_per_attr(bouquet, "bouquet")
+                #print("in best_bouquet, returned from get_score_per_attr")
                 all_possible_bouquets = self.get_all_possible_bouquets_size_6(remaining_flowers)
+                # all_possible_bouquets is a list of tuples
+                #print(all_possible_bouquets)
                 found = 0
                 for possible_bouquet in all_possible_bouquets:
-                    score_attr_possible_bouquet = self.get_score_per_attr(possible_bouquet)
+                    #print(possible_bouquet)
+                    score_attr_possible_bouquet = self.get_score_per_attr(possible_bouquet, "tuple")
+                    if(score_attr_possible_bouquet == None):
+                        continue
                     if(score_attr == score_attr_possible_bouquet): # found an exact match
                         found = 1
                         break
                 # update remaining_flowers
                 if found:
-                    d1 = Counter(bouquet)
+                    d1 = Counter(bouquet.flowers())
                     d2 = Counter(possible_bouquet)
                     d3 = d1 - d2
                     remaining_flowers = dict(d3)
-                    chosen_bouquets[suitor_data[0]] = possible_bouquet
+                    chosen_bouquets[suitor_data[0]] = dict(d2)
                     suitor_bouquet_counts[suitor_data[0]] = len(possible_bouquet)
                     break
 
@@ -223,7 +231,7 @@ class Suitor(BaseSuitor):
         return priority
 
 
-    def get_score_per_attr(self, bouquet):
+    def get_score_per_attr(self, bouquet, typeofdata):
         attr_score = {
             "Small" : 0,
             "Medium" : 0,
@@ -240,8 +248,18 @@ class Suitor(BaseSuitor):
             "Begonia" : 0,
             "None" : 0
         }
-
-        for flower in bouquet.flowers():
+	
+        #print(type(bouquet))
+        if(typeofdata == "tuple"):
+            iteratorobj = bouquet
+        else:
+            iteratorobj = bouquet.flowers()
+        
+        #if(type(bouquet) == tuple):
+        #    print("---------------------------------------tuple found, return ----------------------------------------")
+        #    return None
+        
+        for flower in iteratorobj:
             if flower.size == FlowerSizes.Small:
                 attr_score["Small"] += 1
             elif flower.size == FlowerSizes.Medium:
@@ -316,6 +334,7 @@ class Suitor(BaseSuitor):
                         self.remember_high_scores[suitor].append(temp)
                         self.num_high_scores[suitor] = self.num_high_scores[suitor] + 1
 
+            print("-------------------------------------------------------------------------------------------------------------")
             print(self.remember_high_scores)
 
 

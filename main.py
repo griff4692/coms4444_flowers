@@ -85,8 +85,12 @@ class FlowerMarriageGame:
     def set_app(self, flower_app):
         self.flower_app = flower_app
 
-    def resolve_prepare_func(self, suitor):
-        return suitor.prepare_bouquets_timed if self.restrict_time else suitor.prepare_bouquets
+    def resolve_prepare_func(self, suitor, is_final_round=False):
+        if not self.restrict_time:
+            return suitor.prepare_bouquets
+        if is_final_round:
+            return suitor.prepare_bouquets_timed_final_round
+        return suitor.prepare_bouquets_timed
 
     def resolve_feedback_func(self, suitor):
         return suitor.receive_feedback_timed if self.restrict_time else suitor.receive_feedback
@@ -152,9 +156,11 @@ class FlowerMarriageGame:
         return valid_offers
 
     def simulate_round(self, curr_round):
+        is_final_round = curr_round == self.d - 1
         suitor_ids = [suitor.suitor_id for suitor in self.suitors]
         flowers_for_round = sample_n_random_flowers(self.possible_flowers, self.num_flowers_to_sample)
-        offers = list(map(lambda suitor: self.resolve_prepare_func(suitor)(flowers_for_round.copy()), self.suitors))
+        offers = list(map(lambda suitor: self.resolve_prepare_func(suitor, is_final_round=is_final_round)(
+            flowers_for_round.copy()), self.suitors))
         offers = list(map(lambda i: self.fix_offers(self.suitors[i], offers[i], flowers_for_round), range(self.p)))
         offers_flat = list(itertools.chain(*offers))
         for (suitor_from, suitor_to, bouquet) in offers_flat:

@@ -167,11 +167,13 @@ class Suitor(BaseSuitor):
         return self.suitor_id, recipient_id, chosen_bouquet
     
     def _prepare_bouquet_last_day(self, remaining_flowers):
+        #return Bouquet({})
         def compare(i):
             return best_fit[i][-1]
         best_fit = {}
         sequence = []
-        #print(list(self.all_bouquets_by_element[0][0]))
+
+        print(self.all_bouquets_by_element)
         for player in self.all_bouquets_by_element:
             sequence.append(player)
             best_fit[player]=(None,0)
@@ -331,11 +333,13 @@ class Suitor(BaseSuitor):
         if type == FlowerTypes.Begonia:
             return 3
 
-    def score_types(self, types: Dict[FlowerTypes, int]):#max 4/13
+    def score_types(self, types: Dict[FlowerTypes, int]):#max 8.5/13
         """
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
+        if types=={}:
+            return 0
         key = {0:0,1:0,2:0,3:0}
         score = 0
         for type in types:
@@ -345,40 +349,44 @@ class Suitor(BaseSuitor):
         score = self.type_score[tuple(combination)]
         # random based on the days and number of players
         max = 1819
-        threshold = int(0.01**(1/(self.days * self.num_suitors))*max)
-        if score>threshold:
-            return 4/13
+        threshold = int(0.001**(2/((self.days-1) *(self.num_suitors-1)))*max)
+        if score> threshold:
+            return 8.5/13
         else:
-            return 2/13 # higher score means bigger chance to be chosen in the final day
+            return 0/13 # higher score means bigger chance to be chosen in the final day
 
+    def number_modifier(self,x):
+        return (-(12-x)**(1/2)+12**(1/2))/(12**(1/2))*12
 
-
-    def score_colors(self, colors: Dict[FlowerColors, int]):# max 6 / 13
+    def score_colors(self, colors: Dict[FlowerColors, int]):# max 3 / 13
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
         score = 0
         for color in colors:
-            # do some normalization
             if self.color_score.index(color)==5:
-                score += colors[color] * self.color_score.index(color)
+                score += self.number_modifier(colors[color]) * self.color_score.index(color)
             else:
-                score += colors[color] * self.color_score.index(color) / 2
-        return score / 130
+                score += self.number_modifier(colors[color]) * self.color_score.index(color) / 2
 
-    def score_sizes(self, sizes: Dict[FlowerSizes, int]):# max 3/13
+
+        return score / 260
+
+    def score_sizes(self, sizes: Dict[FlowerSizes, int]):# max 1.5/13
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
         score = 0
         for size in sizes:
-            if self.size_score.index(size) == 2:
-                score += sizes[size] * self.size_score.index(size)
+            if self.size_score.index(size)==2:
+                score += self.number_modifier(sizes[size]) * self.size_score.index(size)
             else:
-                score += sizes[size] * self.size_score.index(size) / 2
-        return score / 104
+                score += self.number_modifier(sizes[size]) * self.size_score.index(size) / 2
+
+
+        return score / 208
     
     def receive_feedback(self, feedback):
         """

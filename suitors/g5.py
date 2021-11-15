@@ -94,7 +94,6 @@ class Suitor(BaseSuitor):
         self.bouquet_data_points = {}
         for sid in range(num_suitors):
             self.bouquet_data_points[sid] = []
-        self.debug_file = open("debug.txt", "w")
 
     def get_target_bouquets(self):
         target_bouquets = []
@@ -110,8 +109,6 @@ class Suitor(BaseSuitor):
             player_diff = self.bouquet_data_points[sid][-1][1] - mean
             target_bouquets.append((sid, self.bouquet_data_points[sid][-1][0], player_diff))
         target_bouquets.sort(key=lambda x : x[2], reverse=True)
-        #self.debug_file.write(str(target_bouquets[0][0]) + "\n")
-        #self.debug_file.write(str(target_bouquets[0][1]) + "\n")
         return target_bouquets
 
 
@@ -131,22 +128,8 @@ class Suitor(BaseSuitor):
             flower_to_add = flowers_with_overlap[0][0]
 
             flower_counts[flower_to_add] -= 1
-            '''
-            self.debug_file.write("********\n")
-            self.debug_file.write(str(target_bouquet.sizes) + "\n")
-            self.debug_file.write(str(target_bouquet.colors) + "\n")
-            self.debug_file.write(str(target_bouquet.types) + "\n")
-            self.debug_file.write("---------\n")
-            '''
             self.reduce_bouquet(flower_to_add, target_bouquet)
-            '''
-            self.debug_file.write(str(target_bouquet.sizes) + "\n")
-            self.debug_file.write(str(target_bouquet.colors) + "\n")
-            self.debug_file.write(str(target_bouquet.types) + "\n")
-            self.debug_file.write("+++++++++++\n")
-            for f in flowers_with_overlap:
-                self.debug_file.write(str(f) + "\n")
-            '''
+            
             if flower_to_add not in bouquet_dict:
                 bouquet_dict[flower_to_add] = 1
             else:
@@ -227,11 +210,7 @@ class Suitor(BaseSuitor):
         """
         self.current_day += 1
         if self.current_day == self.days:
-            #self.print_bouquet_data_points()
-            #self.get_target_bouquets()
-            #self.debug_file.close()
-            prepared_bouquets = self.jy_prepare_final_bouquets(flower_counts)
-            return prepared_bouquets
+            return self.jy_prepare_final_bouquets(flower_counts)
             #return self.prepare_final_bouquets(flower_counts)
         # Saving these for later
         bouquets = self.rand_man.prepare_bouquets(flower_counts)

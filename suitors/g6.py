@@ -13,8 +13,8 @@ from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, get
 from utils import flatten_counter
 from suitors.base import BaseSuitor
 
-# import time
-# import pdb
+import time
+import pdb
 
 
 class Suitor(BaseSuitor):
@@ -33,6 +33,8 @@ class Suitor(BaseSuitor):
         self.NUM_ALL_POSSIBLE_FLOWERS = len(self.all_possible_flower_keys)
         self.all_possible_flowers = dict(zip(self.all_possible_flower_keys, [0] * self.NUM_ALL_POSSIBLE_FLOWERS))
         self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
+
+        self.priority = None
         super().__init__(days, num_suitors, suitor_id, name='g6')
 
 
@@ -271,7 +273,10 @@ class Suitor(BaseSuitor):
         :return: nothing
         """
 
-        scores = [feedback[i][1] for i in range(len(feedback)) if feedback[i][1] != float('-inf')]
+        recipients = range(len(feedback) - 1)
+        self.priority = [x[1] for x in sorted(zip([f for f in feedback if f[1] != float('-inf')], list(recipients)), key = lambda k: (k[0][2], k[0][0], -k[0][1]))]
+
+        scores = [feedback[i][1] for i in recipients if feedback[i][1] != float('-inf')]
 
         for i in range(self.num_suitors - 1):
             if self.curr_day == 1:

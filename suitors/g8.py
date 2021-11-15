@@ -16,12 +16,14 @@ class Suitor(BaseSuitor):
         :param suitor_id: unique id of your suitor in range(num_suitors)
         """
         super().__init__(days, num_suitors, suitor_id, name='g8')
-        self.type_weights = [.1, .2, .35, 1]
-        self.color_weights = [.1, .3, .5, .5, 1, 1]
-        self.size_weights = [0, .5, 1]
+        self.type_weights = [1/(self.days**2), 1/(self.days), 2/(self.days), 1]
+        self.color_weights = [1/(self.days**2), 1/(self.days**2), 1/(self.days), 1/(self.days), 2/(self.days), 1]
+        self.size_weights = [1/(self.days**2), 1/(self.days), 1]
         random.shuffle(self.type_weights)
         random.shuffle(self.color_weights)
         random.shuffle(self.size_weights)
+        # pick one attribute to null
+        self.null = random.randint(0,2) # 0=type, 1=color, 2=size
         self.given = {} # dictionary to save the bouquets we gave + their scores
         for suitor in range(0,num_suitors):
             if suitor!= suitor_id:
@@ -198,11 +200,8 @@ class Suitor(BaseSuitor):
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        # weights
-        # weights = [.1, .2, .35, 1]
-
-        # get preference order
-        # random.shuffle(weights)
+        if self.null == 0:
+            return 0
 
         score = 0
         total = 0
@@ -217,8 +216,8 @@ class Suitor(BaseSuitor):
         if total != 0:
             score = score/total
 
-        # multiply by .25 since each type, sixe, color, number is .25 weight
-        return score*.25
+        # multiply by .4 since each type, sixe, color is .4 weight but one is dropped + .2 number
+        return score*.4
 
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
@@ -226,11 +225,8 @@ class Suitor(BaseSuitor):
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        # weights
-        # weights = [.1, .3, .5, .5, 1, 1]
-
-        # get preference order
-        # random.shuffle(weights)
+        if self.null == 1:
+            return 0
 
         score = 0
         total = 0
@@ -245,8 +241,8 @@ class Suitor(BaseSuitor):
         if total != 0:
             score = score / total
 
-        # multiply by .25 since each type, sixe, color, number is .25 weight
-        return score * .25
+        # multiply by .4 since each type, sixe, color is .4 weight but one is dropped + .2 number
+        return score * .4
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
@@ -272,12 +268,15 @@ class Suitor(BaseSuitor):
         if total != 0:
             score = score / total
 
-        # multiply by .25 since each type, sixe, color, number is .25 weight
-        score = score * .25
+        # multiply by .4 since each type, sixe, color is .4 weight but one is dropped + .2 number
+        score = score * .4
+
+        if self.null == 2:
+            score = 0
 
         # count number of flowers for the last .25
-        weights_number = [0, .08, .16, .24, .32, .4, .48, .56, .64, .72, .8, .88, 1]
-        score_count = weights_number[total]*.25
+        weights_number = [0, .1, .2, .32, .48, .56, .72, .8, .88, 1, 1, 1, 1]
+        score_count = weights_number[total]*.2
 
         return score+score_count
 

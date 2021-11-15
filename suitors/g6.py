@@ -6,6 +6,7 @@ import math
 import numpy as np
 import pandas as pd
 import random
+import pdb
 from sklearn.linear_model import LinearRegression
 
 from constants import MAX_BOUQUET_SIZE
@@ -31,8 +32,11 @@ class Suitor(BaseSuitor):
 
         self.all_possible_flower_keys = [str(f) for f in get_all_possible_flowers()]
         self.NUM_ALL_POSSIBLE_FLOWERS = len(self.all_possible_flower_keys)
+        
         self.all_possible_flowers = dict(zip(self.all_possible_flower_keys, [0] * self.NUM_ALL_POSSIBLE_FLOWERS))
         self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
+
+        self.priority = [i for i in list(range(num_suitors)) if i != suitor_id]
         super().__init__(days, num_suitors, suitor_id, name='g6')
 
 
@@ -81,6 +85,43 @@ class Suitor(BaseSuitor):
 
         return bouquets
 
+    def _extract_the_dimensions(self, bouquets):
+        list_of_dicts = []
+        for bouquet in bouquets:
+            dict_of_features = {}
+            for elem in self.all_possible_flower_keys:
+                components = elem.split("-")
+            
+                for comp in components:
+                    if comp not in dict_of_features:
+                        dict_of_features[comp] = 0
+
+            for i,boolean in enumerate(bouquet):
+                if boolean==1:
+                    flowertype = self.all_possible_flower_keys[i]
+                    components = flowertype.split("-")
+                    size = components[0]
+                    if size in dict_of_features:
+                        dict_of_features[size] = dict_of_features[size] + 1
+                    else:
+                        dict_of_features[size] = 0
+
+                    color = components[1]
+                    if color in dict_of_features:
+                        dict_of_features[color] = dict_of_features[color] + 1
+                    else:
+                        dict_of_features[color] = 0
+
+                    ftype = components[2]
+                    if ftype in dict_of_features:
+                        dict_of_features[ftype] = dict_of_features[ftype] + 1
+                    else:
+                        dict_of_features[ftype] = 0
+                list_of_dicts.append(dict_of_features)
+
+        return list_of_dicts
+
+
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
         :param flower_counts: flowers and associated counts for for available flowers
@@ -91,8 +132,8 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
-        all_ids = np.arange(self.num_suitors)
-        recipient_ids = all_ids[all_ids != self.suitor_id]
+        # all_ids = np.arange(self.num_suitors)
+        # recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
 
         # keys across days for flowers are str(flower) so need to have matching from str(flower) back to flower object
@@ -101,8 +142,7 @@ class Suitor(BaseSuitor):
             rem_flower_key_pairs[str(f)] = f
 
         bouquets = []
-
-        for i in range(len(recipient_ids)):
+        for i in range(len(self.priority)):
             if self.curr_day != 0 and self.score_hist[i][-1] == 1: # already know best bouquet possible
                 if self.curr_day == self.days - 1: # last day so give best bouquet
                     # ensure have the flowers to do so
@@ -117,7 +157,8 @@ class Suitor(BaseSuitor):
 
                         continue
                 else: # not last day so give empty bouquet to save flowers since already know bouquet is correct
-                    bouquets.append((self.suitor_id, recipient_ids[i], Bouquet({}))) # give empty
+                    # bouquets.append((self.suitor_id, recipient_ids[i], Bouquet({})))  # give empty
+                    bouquets.append((self.suitor_id, self.priority[i], Bouquet({})))  # give empty
 
                     self.bouquet_hist[i].append(self.bouquet_hist[i][-1]) # pretending we are giving best bouquet
                     self.arrangement_hist[i].append(self.arrangement_hist[i][-1])
@@ -126,6 +167,8 @@ class Suitor(BaseSuitor):
             if self.curr_day > 1 and self.curr_day > int(self.days * 0.3): # giving bouquet using best guess from Linear Regression
                 # getting all valid flower combinations for each person -- so know best bouquet is valid
                 all_possible_bouquets_arr = self._get_all_possible_bouquets_arr(remaining_flowers)
+                #MIA SAYS UNCOMMENT THIS LINE
+                self._extract_the_dimensions(all_possible_bouquets_arr)
                 all_possible_bouquets_nparr = np.array(all_possible_bouquets_arr)
                 hist_nparr = np.asarray(self.arrangement_hist[i], dtype=int)
 
@@ -153,14 +196,16 @@ class Suitor(BaseSuitor):
                 else:
                     best_bouquet = Bouquet(dict())
 
-                bouquets.append((self.suitor_id, recipient_ids[i], best_bouquet))
+                # bouquets.append((self.suitor_id, recipient_ids[i], best_bouquet))
+                bouquets.append((self.suitor_id, self.priority[i], best_bouquet))
                 self.arrangement_hist[i].append(best_flowers)
                 self.bouquet_hist[i].append(best_bouquet)
 
             else: # give random bouquet to get more data for Linear Regression
                 arrangement_len = len(self.arrangement_hist[i]) if self.curr_day != 0 else 1
                 for _ in range(arrangement_len):
-                    suitor_id, recipient_id, chosen_bouquet = self._prepare_rand_bouquet(remaining_flowers, recipient_ids[i])
+                    # suitor_id, recipient_id, chosen_bouquet = self._prepare_rand_bouquet(remaining_flowers, recipient_ids[i])
+                    suitor_id, recipient_id, chosen_bouquet = self._prepare_rand_bouquet(remaining_flowers, self.priority[i])
 
                     b_dict = dict()
                     for k, v in chosen_bouquet.arrangement.items():
@@ -270,6 +315,8 @@ class Suitor(BaseSuitor):
         :param feedback:
         :return: nothing
         """
+
+        self.priority = [x[1] for x in sorted(zip(feedback, list(range(len(feedback)))), key = lambda k: (k[0][2], k[0][0], -k[0][1])) if x[0][1] != float('-inf')]
 
         scores = [feedback[i][1] for i in range(len(feedback)) if feedback[i][1] != float('-inf')]
 

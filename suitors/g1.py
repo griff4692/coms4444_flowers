@@ -8,6 +8,7 @@ import numpy as np
 from collections import defaultdict, Counter
 from itertools import combinations_with_replacement
 from utils import flatten_counter
+from copy import deepcopy
 
 
 class Suitor(BaseSuitor):
@@ -62,10 +63,12 @@ class Suitor(BaseSuitor):
         #  0 = Unknown
         #  1 = Has our strat
         self.has_our_strat = [0] * num_suitors
-        # counter for how many times our strat has been checked
-        self.our_strat_count = [0] * num_suitors
-        # max times to check if a suitor has our strat before saying they actually do
-        self.our_strat_max_count = 2 # arbitrarily chosen
+
+        # counter for how many times our strat has been checked, **arbitrary number**
+        self.our_strat_count = [3] * num_suitors
+
+        # bouqeut to color copy
+        self.score_1_bouquet = [None] * num_suitors
 
     # choose one score bouquet randomly from the flowerColor.probability until reached the percentage
     def choose_one_score_bouquet_for_ourselves(self, probability_table: Dict):
@@ -92,11 +95,9 @@ class Suitor(BaseSuitor):
         # TODO: if we got 1.0 score from that group before, skip it or we should keep guessing,
         #  because we may not get that 1 score in the final round given by the flowers
 
-        if self.has_our_strat[recipient_id] == 0 and self.our_strat_count[recipient_id] != 0:
-            flowers_sent = self.bouquet_history[recipient_id][-1]
+        if self.has_our_strat[recipient_id] == 0 and self.score_1_bouquet[recipient_id] != None:
 
-            # print('\n\n\n\nThis is what im trying to color copy')
-            # print(*flowers_sent)
+            flowers_sent = self.score_1_bouquet[recipient_id]
 
             colors_count = [0]*6
             for f,i in flowers_sent.items():
@@ -106,12 +107,6 @@ class Suitor(BaseSuitor):
             # essentially choose a random bouquet of same color count
             random.shuffle(rem_flowers_list)
 
-            # print('**********************')
-            # print(*rem_flowers_list)
-            # print('**********************')
-
-            # print(colors_count)
-
             chosen_flower_counts = dict()
             for f in rem_flowers_list:
                 if colors_count[f.color.value] > 0:
@@ -120,9 +115,12 @@ class Suitor(BaseSuitor):
                     chosen_flower_counts[f] += 1
                     colors_count[f.color.value] -= 1
 
-            # print('\n this is what i made')
-            # print(*chosen_flower_counts)  
-            # input()
+            # couldn't color copy
+            if np.any(colors_count):
+                chosen_flower_counts = dict()
+
+            for f in chosen_flower_counts:
+                remaining_flowers[f] -= 1
 
             self.bouquet_history[recipient_id].append(chosen_flower_counts)
 
@@ -155,6 +153,41 @@ class Suitor(BaseSuitor):
         recipient_visited = set()
         self.recipients_all_score.sort(key=lambda x: -x[1])
         recipient_chosen_flowers = dict()
+
+        for i in range(self.num_suitors):
+            # suitor isn't us and they use our strat and we have found a score 1 bouquet
+            if i != self.suitor_id and self.has_our_strat[i] == 1:
+
+                recipient_visited.add(i)
+
+                flowers_sent = self.score_1_bouquet[i]
+
+                colors_count = [0]*6
+                for f,j in flowers_sent.items():
+                    colors_count[f.color.value] += j
+
+                rem_flowers_list = flatten_counter(remaining_flowers)
+                # essentially choose a random bouquet of same color count
+                random.shuffle(rem_flowers_list)
+
+                chosen_flower_counts = dict()
+                for f in rem_flowers_list:
+                    if colors_count[f.color.value] > 0:
+                        if f not in chosen_flower_counts:
+                            chosen_flower_counts[f] = 0
+                        chosen_flower_counts[f] += 1
+                        colors_count[f.color.value] -= 1
+
+                # couldn't color copy
+                if np.any(colors_count):
+                    chosen_flower_counts = dict()
+
+                for f in chosen_flower_counts:
+                    remaining_flowers[f] -= 1
+
+                recipient_chosen_flowers[i] = self.suitor_id, i, Bouquet(chosen_flower_counts)
+
+
 
         for recipient_id, score in self.recipients_all_score:
             if len(recipient_visited) == self.num_suitors - 1:
@@ -217,9 +250,11 @@ class Suitor(BaseSuitor):
         result = []
         suitors = set()
         for i in range(self.num_suitors):
-            if i != self.suitor_id and self.has_our_strat[i] == 0 and self.our_strat_count[i] != 0:
+            # suitor isn't us and unknown is they use our strat and we have found a score 1 bouquet
+            if i != self.suitor_id and self.has_our_strat[i] == 0 and self.score_1_bouquet[i] != None:
                 result.append(self._prepare_bouquet(remaining_flowers, i))
                 suitors.add(i)
+
         for i in range(self.num_suitors):
             if i != self.suitor_id and i not in suitors:
                 result.append(self._prepare_bouquet(remaining_flowers, i))
@@ -312,27 +347,25 @@ class Suitor(BaseSuitor):
             self.recipients_largest_score_[recipient_id] = max(self.recipients_largest_score_[recipient_id], score)
             self.recipients_all_score.append((recipient_id, score))
 
-            if score == 1 and self.has_our_strat[recipient_id] == 0:
 
-                # print("\n\n\n")
-                # print(*flower_sent)
-                # input(f'{self.suitor_id} okok: {recipient_id} {score} {self.current_day}')
 
-                # found score 1 and don't know if suitor has our strat yet
+            # unknown if they have our strat and I sent a non-empty bouquet
+            if self.has_our_strat[recipient_id] == 0 and flower_sent:
+                                             
+                # no bouquet saved yet
+                if self.score_1_bouquet[recipient_id] == None:
+                    if score == 1:
+                        self.score_1_bouquet[recipient_id] = dict(flower_sent)
+                        self.our_strat_count[recipient_id] -= 1
+                else:
+                    if score == 1:
+                        self.our_strat_count[recipient_id] -= 1
 
-                self.our_strat_count[recipient_id] += 1
-                if self.our_strat_count[recipient_id] == self.our_strat_max_count:
-                    self.has_our_strat[recipient_id] = 1
-                    # input(f'{self.suitor_id} : {recipient_id} has our strat!***********')
+                        if self.our_strat_count[recipient_id] == 0:
+                            self.has_our_strat[recipient_id] = 1
+                    else:
+                        self.has_our_strat[recipient_id] = -1
 
-            elif score != 1 and self.has_our_strat[recipient_id] == 0 and self.our_strat_count[recipient_id] != 0:
-                # was checking if this suitor has our strat, but found a score != 1, they def do not have our strat
-
-                self.has_our_strat[recipient_id] = -1
-
-                # print("\n\n\n")
-                # print(*flower_sent)
-                # input(f'{self.suitor_id} nope: {recipient_id} {score} {self.current_day}')
 
 ''' usage of BouquetSimulator:
 bouquet = BouquetSimulator(9) -> number of players

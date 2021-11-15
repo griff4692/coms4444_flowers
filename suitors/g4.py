@@ -1,11 +1,12 @@
 from typing import Dict
-from collections import Counter
+from collections import Counter, defaultdict
+from random import shuffle, choice, randint
 import math
+import random as rand
+import numpy as np
 
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
-from random import shuffle, choice, randint
-import numpy as np
 from utils import flatten_counter
 from constants import MAX_BOUQUET_SIZE
 
@@ -18,19 +19,27 @@ class Suitor(BaseSuitor):
         :param suitor_id: unique id of your suitor in range(num_suitors)
         """
         super().__init__(days, num_suitors, suitor_id, name='g4')
-        self.remaining_turns = days
+        self.total_turns = days
+        self.remaining_turns = self.total_turns
         all_ids = np.arange(num_suitors)
         self.recipient_ids = all_ids[all_ids != suitor_id]
-        self.to_be_tested = self.generate_tests()
+        self.to_be_tested = self._generate_exp_groups_single()
         self.train_feedback = np.zeros((len(self.recipient_ids), 6, 4, 3))  # feedback score from other recipients
         self.last_bouquet = None  # bouquet we gave out from the last turn
+        self.control_group_assignments = self._assign_control_groups()
 
-        self.size_mapping = self.generate_map(FlowerSizes)
-        self.color_mapping = self.generate_map(FlowerColors)
-        self.type_mapping = self.generate_map(FlowerTypes)
         self.best_arrangement = self.generate_random_bouquet()
         self.best_arrangement_size_vec, self.best_arrangement_color_vec, self.best_arrangement_type_vec = \
         self.get_bouquet_score_vectors(self.best_arrangement)
+        self.experiments = {}
+        for i in range(num_suitors):
+            if i != suitor_id:
+                self.experiments[i] = defaultdict(list)
+        self.suitor_id = suitor_id # Added this line
+
+    @staticmethod
+    def _get_combinations(list1, list2):
+        return [[list1[i], list2[j]] for i in range(len(list1)) for j in range(len(list2))]
 
     def generate_random_flower(self):
         return Flower(
@@ -80,9 +89,41 @@ class Suitor(BaseSuitor):
         ) 
         dist =  1 / (self.compute_euc_dist(v1,v2) + 1)
         return dist if dist > THRESHOLD else 0
+      
 
+    def _assign_control_groups(self):
+        """
+        Get control group assignments for all recipients.
+        :return: assignments[i]['color_control'] = [t, s] a combination of type=t and size=s as the color controlled
+                 experiments setup for recipient i.
+        """
+        # get combinations
+        fc_exp_options = [FlowerColors(i) for i in range(6)]
+        ft_exp_options = [FlowerTypes(i) for i in range(4)]
+        fs_exp_options = [FlowerSizes(i) for i in range(3)]
+        fc_control_options = self._get_combinations(ft_exp_options, fs_exp_options)
+        ft_control_options = self._get_combinations(fc_exp_options, fs_exp_options)
+        fs_control_options = self._get_combinations(fc_exp_options, ft_exp_options)
 
-    def generate_tests(self):
+        # shuffle the combinations to make it less likely for recipients to get similar fixed values
+        # e.g. we want to avoid assigning player1=[rose, small] and player2=[rose, medium] for color experiments when
+        # there are only 2 players in the game (i.e. few players)
+        rand.shuffle(fc_control_options)
+        rand.shuffle(ft_control_options)
+        rand.shuffle(fs_control_options)
+
+        assignments = {}
+        for recipient in self.recipient_ids:
+
+            assignments[recipient] = {
+                'fc_control': fc_control_options[recipient % len(fc_control_options)],
+                'ft_control': ft_control_options[recipient % len(ft_control_options)],
+                'fs_control': fs_control_options[recipient % len(fs_control_options)],
+            }
+
+        return assignments
+
+    def _generate_exp_groups_single(self):
         to_be_tested = {}
         # TODO can set up a ratio for different variables that ensure each variable is getting tested within #days
         for recipient_id in self.recipient_ids:
@@ -93,24 +134,14 @@ class Suitor(BaseSuitor):
 
         return to_be_tested
 
-    def generate_map(self, flower_enum):
-        sizes = [n.value for n in flower_enum]
-        shuffle(sizes)
-        mapping = {}
-        for idx, name in enumerate(flower_enum):
-            mapping[name] = sizes[idx]
-        return mapping
-
-    def best_bouquet(self):
-        best_size = (sorted([(key, value) for key, value in self.size_mapping.items()], key=lambda x: x[1]))[-1][0]
-        best_color = (sorted([(key, value) for key, value in self.color_mapping.items()], key=lambda x: x[1]))[-1][0]
-        best_type = (sorted([(key, value) for key, value in self.type_mapping.items()], key=lambda x: x[1]))[-1][0]
-        best_flower = Flower(
-            size=best_size,
-            color=best_color,
-            type=best_type
-        )
-        return Bouquet({best_flower: 1})
+    def able_to_create_bouquet(self, flowers, flowercount):
+        for flower, count in flowers.arrangement.items():
+            if flower in flowercount:
+                if flowercount[flower] < count:
+                    return False
+            else:
+                return False
+        return True
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
@@ -126,169 +157,188 @@ class Suitor(BaseSuitor):
         """
         self.remaining_turns -= 1
         bouquet_for_all = []  # return value
-        flower_info = self._flatten_flower_info(flower_counts)
+        bouquet_for_all_and_etype = []
+        flower_info = self._tabularize_flowers(flower_counts)
 
-        # if self.remaining_turns == 1:  # TODO second-to-last-day: testing phase
-        #     pass
-
-        if self.remaining_turns == 0:  # last day: final round
-
-            # find highest score setup for each recipient
-            max_args = []
-            max_scores = []
-            for r_ind in range(len(self.recipient_ids)):
-                max_arg = None
-                max_score = 0
-                for c_ind in range(6):
-                    for t_ind in range(4):
-                        for s_ind in range(3):
-                            if self.train_feedback[r_ind][c_ind][t_ind][s_ind] > max_score:
-                                max_arg = (c_ind, t_ind, s_ind)
-                                max_score = self.train_feedback[r_ind][c_ind][t_ind][s_ind]
-                max_args.append(max_arg)
-                max_scores.append(max_score)
-            sorted_max_args = np.argsort(max_scores)[::-1]
-            max_args = [max_args[max_arg] for max_arg in sorted_max_args]
-
-            # random bouquets for everyone by default
-            bouquet_for_all = []
-            for r_ind in range(len(self.recipient_ids)):
-                recipient_id = self.recipient_ids[r_ind]
-
-                remaining_flowers = flower_counts.copy()
-                num_remaining = sum(remaining_flowers.values())
-                size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
-                if size > 0:
-                    chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size,), replace=False)
-                    chosen_flower_counts = dict(Counter(chosen_flowers))
-                    for k, v in chosen_flower_counts.items():
-                        remaining_flowers[k] -= v
-                        assert remaining_flowers[k] >= 0
+        if self.remaining_turns == 0:
+            # TODO final round, give the bouquet with the highest score from the previous tryouts\
+            for i in self.recipient_ids:
+                go_random = False
+                if len(self.experiments[i]) != 0:
+                    highest_temp = -math.inf
+                    maximum_bouquet= None
+                    # for each recipient, if we have data for them, get the highest score and return the same combination to them
+                    sortedList = []
+                    for j in self.experiments[i].values():
+                        sortedList.extend(j)
+                    sortedList.sort(key = lambda x: x[1], reverse = True)
+                    canMake = False
+                    for flowers, score in sortedList[:math.ceil(len(sortedList)/2)]:
+                        if self.able_to_create_bouquet(flowers, flower_counts):
+                            canMake = True
+                            bouquet_for_all.append([self.suitor_id, i, flowers])
+                            for flower,count in flowers.arrangement.items():
+                                flower_counts[flower] -= count
+                            break
+                    go_random = not canMake
                 else:
-                    chosen_flower_counts = dict()
-                chosen_bouquet = Bouquet(chosen_flower_counts)
-                bouquet_for_all.append([self.suitor_id, recipient_id, chosen_bouquet])
-
-            # # give flowers if resources are available
-            # for max_arg_ind in range(len(max_args)):
-            #     max_arg = max_args[max_arg_ind]
-            #     if flower_info[max_arg] > 0:
-            #         chosen_flowers = []
-            #         chosen_flowers.append(Flower(color=FlowerColors(max_arg[0]),
-            #                                      type=FlowerTypes(max_arg[1]),
-            #                                      size=FlowerSizes(max_arg[2])))
-            #         chosen_flower_counts = dict(Counter(np.asarray(chosen_flowers)))
-            #         chosen_bouquet = Bouquet(chosen_flower_counts)
-            #         bouquet_for_all[sorted_max_args[max_arg_ind]][2] = chosen_bouquet
+                    go_random = True
+                if go_random:
+                    # random bouquets if go_random is true
+                    recipient_id = i
+                    remaining_flowers = flower_counts.copy()
+                    num_remaining = sum(remaining_flowers.values())
+                    size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
+                    if size > 0:
+                        chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size,), replace=False)
+                        chosen_flower_counts = dict(Counter(chosen_flowers))
+                        for k, v in chosen_flower_counts.items():
+                            remaining_flowers[k] -= v
+                            assert remaining_flowers[k] >= 0
+                    else:
+                        chosen_flower_counts = dict()
+                    chosen_bouquet = Bouquet(chosen_flower_counts)
+                    bouquet_for_all.append([self.suitor_id, recipient_id, chosen_bouquet])
+                    flower_counts = remaining_flowers
 
             return bouquet_for_all
-
-            # # if nothing works, random
-            # remaining_flowers = flower_counts.copy()
-            # num_remaining = sum(remaining_flowers.values())
-            # size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
-            # if size > 0:
-            #     chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size,), replace=False)
-            #     chosen_flower_counts = dict(Counter(chosen_flowers))
-            #     for k, v in chosen_flower_counts.items():
-            #         remaining_flowers[k] -= v
-            #         assert remaining_flowers[k] >= 0
-            # else:
-            #     chosen_flower_counts = dict()
-            # chosen_bouquet = Bouquet(chosen_flower_counts)
-            # return self.suitor_id, self.recipient_ids[0], chosen_bouquet
 
         else:  # training phase: conduct controlled experiments
             for ind in range(len(self.recipient_ids)):
                 recipient_id = self.recipient_ids[ind]
-                chosen_flowers = self._prepare_bouquet(flower_info, recipient_id)
+                chosen_flowers, exp_type, flower_info = self._prepare_bouquet(flower_info, recipient_id)
 
                 # build the bouquet
                 chosen_flower_counts = dict(Counter(np.asarray(chosen_flowers)))
                 chosen_bouquet = Bouquet(chosen_flower_counts)
                 bouquet_for_all.append([self.suitor_id, recipient_id, chosen_bouquet])
+                bouquet_for_all_and_etype.append([self.suitor_id, recipient_id, chosen_bouquet, exp_type])
 
-                # store feedback values if available
-                if len(self.feedback) > 0:
-                    feedback_recipient_score = self.feedback[-1][recipient_id][1]
-                    last_bouquet_recipient = self.last_bouquet[ind]
-                    # TODO loop over all flowers in the bouquet; currently there's just one
-                    c_ind = list(last_bouquet_recipient[2].colors.keys())[0].value
-                    t_ind = list(last_bouquet_recipient[2].types.keys())[0].value
-                    s_ind = list(last_bouquet_recipient[2].sizes.keys())[0].value
-                    self.train_feedback[ind][c_ind][t_ind][s_ind] = feedback_recipient_score
+            if len(self.feedback) > 0:
+                self.update_results()
 
             # update last_bouquet
-            self.last_bouquet = bouquet_for_all
+            self.last_bouquet = bouquet_for_all_and_etype
 
             return bouquet_for_all
 
     def _prepare_bouquet(self, flower_info, recipient_id):
         chosen_flowers = []  # for building a bouquet later
         tested = False
+        C_T_S_SPLIT = 1./3  # even split between the three experiment categories
+        exp_type = None  # options: 'color', 'type', 'size', None
 
-        # color
-        for c_test_ind in range(len(self.to_be_tested[str(recipient_id)][0])):
-            c_test = self.to_be_tested[str(recipient_id)][0][c_test_ind]
-            nonzero_items = np.nonzero(flower_info[c_test.value])
-            if len(nonzero_items[0]) > 0:
-                # decrement flower_info at c_test, t_test, s_test
-                flower_info[c_test.value][nonzero_items[0][0]][nonzero_items[1][0]] -= 1
-                # decrement c_test from self.to_be_tested
-                self.to_be_tested[str(recipient_id)][0].remove(c_test)
-                tested = True
+        # flower color: first C_T_S_SPLIT proportion of the game
+        if self.remaining_turns / self.total_turns >= C_T_S_SPLIT * 2:
 
-                # TODO for now only append one flower but we'll consider bouquet size later
-                # for (t, s) in zip(nonzero_items[0], nonzero_items[1]):
-                chosen_flowers.append(Flower(color=c_test,
-                                             type=FlowerTypes(nonzero_items[0][0]),
-                                             size=FlowerSizes(nonzero_items[1][0])))
-                break
+            # get the fixed [size, type] setting for this recipient for the color experiments
+            fc_control = self.control_group_assignments[recipient_id]['fc_control']
+            fixed_ft = fc_control[0].value
+            fixed_fs = fc_control[1].value
 
-        # type
-        if not tested:
-            for t_test_ind in range(len(self.to_be_tested[str(recipient_id)][1])):
-                t_test = self.to_be_tested[str(recipient_id)][1][t_test_ind]
-                nonzero_items = np.nonzero(flower_info[t_test.value])
-                if len(nonzero_items[0]) > 0:
-                    # decrement flower_info at c_test, t_test, s_test
-                    flower_info[nonzero_items[0][0]][t_test.value][nonzero_items[1][0]] -= 1
-                    # decrement t_test from self.to_be_tested
-                    self.to_be_tested[str(recipient_id)][1].remove(t_test)
-                    tested = True
+            # grab flower counts that match with fc_control for this round: list of length 6
+            fc_exp_options = flower_info[:, fixed_ft, fixed_fs]
+            fc_exp = []
+            if sum(fc_exp_options) > 0:  # if there are flowers to work with
 
-                    # TODO for now only append one flower but we'll consider bouquet size later
-                    # for (c, s) in zip(nonzero_items[0], nonzero_items[1]):
-                    chosen_flowers.append(Flower(color=FlowerColors(nonzero_items[0][0]),
-                                                 type=t_test.value,
-                                                 size=FlowerSizes(nonzero_items[1][0])))
-                    break
+                # randomly generate a flower count for each color from the available flowers
+                fc_exp = [rand.choice(list(range(fc_exp_options[i] + 1))) for i in range(len(fc_exp_options))]
+                exp_type = 'color'
 
-        # size
-        if not tested:
-            for s_test_ind in range(len(self.to_be_tested[str(recipient_id)][2])):
-                s_test = self.to_be_tested[str(recipient_id)][2][s_test_ind]
-                nonzero_items = np.nonzero(flower_info[s_test.value])
-                if len(nonzero_items[0]) > 0:
-                    # decrement flower_info at c_test, t_test, s_test
-                    flower_info[nonzero_items[0][0]][nonzero_items[1][0]][s_test.value] -= 1
-                    # decrement s_test from self.to_be_tested
-                    self.to_be_tested[str(recipient_id)][2].remove(s_test)
+                for fc_ind in range(len(fc_exp)):  # iterate over all colors
+                    for _ in range(fc_exp[fc_ind]):  # append flower(s) with color=fc_ind
+                        chosen_flowers.append(Flower(color=FlowerColors(fc_ind),
+                                                     type=FlowerTypes(fixed_ft),
+                                                     size=FlowerSizes(fixed_fs)))
+                    flower_info[fc_ind, fixed_ft, fixed_fs] -= fc_exp[fc_ind]  # decrement flower_info
 
-                    # TODO for now only append one flower but we'll consider bouquet size later
-                    # for (c, s) in zip(nonzero_items[0], nonzero_items[1]):
-                    chosen_flowers.append(Flower(color=FlowerColors(nonzero_items[0][0]),
-                                                 type=FlowerTypes(nonzero_items[1][0]),
-                                                 size=s_test.value))
-        return chosen_flowers
 
+            else:  # if there are no flower with the fc_control [size, type] setting
+                chosen_flowers, flower_info = self._generate_rand_bouquet(flower_info)
+
+        # flower type: second C_T_S_SPLIT proportion of the game
+        elif self.remaining_turns / self.total_turns >= C_T_S_SPLIT:
+            ft_control = self.control_group_assignments[recipient_id]['ft_control']
+            fixed_fc = ft_control[0].value
+            fixed_fs = ft_control[1].value
+            ft_exp_options = flower_info[fixed_fc, :, fixed_fs]
+            if sum(ft_exp_options) > 0:
+                ft_exp = [rand.choice(list(range(ft_exp_options[i] + 1))) for i in range(len(ft_exp_options))]
+                exp_type = 'type'
+                for ft_ind in range(len(ft_exp)):
+                    for _ in range(ft_exp[ft_ind]):
+                        chosen_flowers.append(Flower(color=FlowerColors(fixed_fc),
+                                                     type=FlowerTypes(ft_ind),
+                                                     size=FlowerSizes(fixed_fs)))
+                    flower_info[fixed_fc, ft_ind, fixed_fs] -= ft_exp[ft_ind]
+            else:
+                chosen_flowers, flower_info = self._generate_rand_bouquet(flower_info)
+
+        # flower size: third C_T_S_SPLIT proportion of the game
+        else:
+            fs_control = self.control_group_assignments[recipient_id]['fs_control']
+            fixed_fc = fs_control[0].value
+            fixed_ft = fs_control[1].value
+            fs_exp_options = flower_info[fixed_fc, fixed_ft, :]
+            if sum(fs_exp_options) > 0:
+                fs_exp = [rand.choice(list(range(fs_exp_options[i] + 1))) for i in range(len(fs_exp_options))]
+                exp_type = 'size'
+                for fs_ind in range(len(fs_exp)):
+                    for _ in range(fs_exp[fs_ind]):
+                        chosen_flowers.append(Flower(color=FlowerColors(fixed_fc),
+                                                     type=FlowerTypes(fixed_ft),
+                                                     size=FlowerSizes(fs_ind)))
+                    flower_info[fixed_fc, fixed_ft, fs_ind] -= fs_exp[fs_ind]
+            else:
+                chosen_flowers, flower_info = self._generate_rand_bouquet(flower_info)
+
+        return chosen_flowers, exp_type, flower_info
+
+    def _generate_rand_bouquet(self, flower_info):
+        chosen_flowers = []
+        remaining_flowers = self._list_flowers(flower_info)
+        num_remaining = sum(remaining_flowers.values())
+        size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
+        if size > 0:
+            chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size,), replace=False)
+        for chosen_flower in chosen_flowers:
+            flower_info[chosen_flower.color.value, chosen_flower.type.value, chosen_flower.size.value] -= 1
+        return chosen_flowers, flower_info
+
+    # Helper function that adds to results
+    # Make sure that last_bouquet is in the correct player order (i.e. suitor 0 is index 0)
+    def update_results(self):
+        results = self.feedback[-1]
+        for i in range(len(results)):
+            if i != self.suitor_id:
+                player = self.experiments[i]
+
+                given, experiment = self.last_bouquet[list(self.recipient_ids).index(i)][2], self.last_bouquet[list(self.recipient_ids).index(i)][3]
+
+                player[experiment].append((given, results[i][1]))
+    
     @staticmethod
-    def _flatten_flower_info(flower_counts):
+    def _tabularize_flowers(flower_counts):
         flowers = flower_counts.keys()
-        flower_info = np.zeros((6, 4, 3))  # (color, type, size)
+        flower_info = np.zeros((6, 4, 3), dtype=int)  # (color, type, size)
         for flower in flowers:
             flower_info[flower.color.value][flower.type.value][flower.size.value] = flower_counts[flower]
         return flower_info
+
+    @staticmethod
+    def _list_flowers(flower_info):
+        flower_counts = {}
+        for c in range(6):
+            for t in range(4):
+                for s in range(3):
+                    if flower_info[c][t][s] > 0:
+                        flower = Flower(
+                                        size=FlowerSizes(s),
+                                        color=FlowerColors(c),
+                                        type=FlowerTypes(t)
+                                    )
+                        flower_counts[flower] = flower_info[c][t][s]
+        return flower_counts
 
     def zero_score_bouquet(self):
         """
@@ -358,3 +408,6 @@ class Suitor(BaseSuitor):
         :return: nothing
         """
         self.feedback.append(feedback)
+        print('Feedback added')
+        print(self.feedback)
+        print(self.feedback[-1])

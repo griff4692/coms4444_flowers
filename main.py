@@ -13,6 +13,7 @@ from gui_app import FlowerApp
 from suitors.base import BaseSuitor
 from suitors.suitor_factory import suitor_by_name
 from utils import flatten_counter
+from time_utils import prepare_empty_bouquets
 
 
 class FlowerMarriageGame:
@@ -119,12 +120,15 @@ class FlowerMarriageGame:
         offer_cts = defaultdict(int)
         is_more_than_market = False
         is_hallucinated = False
+        is_invalid_format = False
         valid_offers = []
         for offer in offers:
             if self._is_valid_offer_format(offer):
                 valid_offers.append(offer)
             else:
                 self.logger.error(f'Suitor {suitor.suitor_id} provided an invalid format for its offering: {offer}')
+                is_invalid_format = True
+                break
             for flower, ct in offer[-1].arrangement.items():
                 offer_cts[flower] += ct
                 if flower not in flowers_for_round:
@@ -140,12 +144,11 @@ class FlowerMarriageGame:
                         f'Suitor {suitor.suitor_id} gave away atleast {offer_cts[flower]} {flower} flowers. '
                         f'There are only {flowers_for_round[flower]} available at the market.')
                     break
-            if is_more_than_market or is_hallucinated:
+            if is_more_than_market or is_hallucinated or is_invalid_format:
                 break
 
-        if is_more_than_market or is_hallucinated:
-            # Nulling all the offers
-            return [[x[0], x[1], Bouquet({})] for x in offers]
+        if is_more_than_market or is_hallucinated or is_invalid_format:
+            return prepare_empty_bouquets(suitor)
         return valid_offers
 
     def simulate_round(self, curr_round):

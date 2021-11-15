@@ -239,7 +239,7 @@ class Suitor(BaseSuitor):
         recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
         # First day ~ self.days/2: pass randomly
-        if (self.days_remaining < self.days/2):
+        if (self.days_remaining < np.ceil(self.days/2)):
             # Increment days_remaining
             self.days_remaining += 1
             return list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))

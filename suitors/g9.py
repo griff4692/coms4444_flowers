@@ -33,6 +33,7 @@ class Suitor(BaseSuitor):
         sequence = np.arange(n)
         np.random.shuffle(sequence)
         return sequence
+        
     def generate_type_sequence(self):
         self.type_score = {}
         self.max_type_sequence = []
@@ -101,6 +102,65 @@ class Suitor(BaseSuitor):
         else:
             chosen_flower_counts = dict()
         chosen_bouquet = Bouquet(chosen_flower_counts)
+        self.all_bouquets[recipient_id].append((chosen_bouquet, 0)) # store the bouquet we gave to each player in this round 
+        colors, types, sizes = self.bouquet_to_elements(chosen_bouquet)
+        self.all_bouquets_by_element[recipient_id].append((types, colors, sizes, 0))
+        return self.suitor_id, recipient_id, chosen_bouquet
+
+    def _prepare_bouquet_intermediate_day_15(self, remaining_flowers, recipient_id_and_scores):
+        num_remaining = sum(remaining_flowers.values())
+        recipient_id = recipient_id_and_scores[0]
+        percentage_75_score = recipient_id_and_scores[1]
+        types_of_bouquets = {}
+        sizes_of_bouquets = {}
+        colors_of_bouquets = {}
+        scores_over_75_percentile = 0
+        for bouquet in self.all_bouquets_by_element[recipient_id]:
+            score = bouquet[-1]
+            if score > percentage_75_score:
+                scores_over_75_percentile += 1
+                for key, value in bouquet[0].items():
+                    if key in types_of_bouquets:
+                        types_of_bouquets[key] += value
+                    else:
+                        types_of_bouquets[key] = value
+                for key, value in bouquet[1].items():
+                    if key in colors_of_bouquets:
+                        colors_of_bouquets[key] += value
+                    else:
+                        colors_of_bouquets[key] = value
+                for key, value in bouquet[2].items():
+                    if key in sizes_of_bouquets:
+                        sizes_of_bouquets[key] += value
+                    else:
+                        sizes_of_bouquets[key] = value
+        new_bouquet = {}
+        number_of_flowers = 0
+        for i in range(3):
+            requirement = 3-i
+            for flower in remaining_flowers:
+                if remaining_flowers[flower]==0:
+                    continue
+                flower_score = 0
+                if  flower.type in types_of_bouquets and types_of_bouquets[flower.type]>0:
+                    flower_score +=1
+                if  flower.size in sizes_of_bouquets and sizes_of_bouquets[flower.size]>0:
+                    flower_score +=1
+                if  flower.color in colors_of_bouquets and colors_of_bouquets[flower.color]>0:
+                    flower_score +=1
+                if flower_score >= requirement and number_of_flowers < 12:
+                    number_of_flowers += 1
+                    if flower.type in types_of_bouquets and types_of_bouquets[flower.type]/scores_over_75_percentile > 0:
+                        types_of_bouquets[flower.type] -= 1
+                    if flower.color in colors_of_bouquets and colors_of_bouquets[flower.color]/scores_over_75_percentile > 0:
+                        colors_of_bouquets[flower.color] -= 1
+                    if flower.size in sizes_of_bouquets and sizes_of_bouquets[flower.size]/scores_over_75_percentile > 0:
+                        sizes_of_bouquets[flower.size] -= 1
+                    remaining_flowers[flower] -= 1
+                    if flower not in new_bouquet:
+                        new_bouquet[flower] = 0
+                    new_bouquet[flower] += 1
+        chosen_bouquet = Bouquet(new_bouquet)
         self.all_bouquets[recipient_id].append((chosen_bouquet, 0)) # store the bouquet we gave to each player in this round 
         colors, types, sizes = self.bouquet_to_elements(chosen_bouquet)
         self.all_bouquets_by_element[recipient_id].append((types, colors, sizes, 0))
@@ -190,11 +250,33 @@ class Suitor(BaseSuitor):
             recipient_ids = list(zip(*prev_round_feedback))[1] # sort recipiernt_ids by final score to prioritize players
             return self._prepare_bouquet_last_day(remaining_flowers)
             #return list(map(lambda recipient_id: self._prepare_bouquet_last_day(remaining_flowers, recipient_id), recipient_ids))
+        elif self.current_day % 15 == 0: # every 15th intermediate day 
+            self.current_day += 1
+            players_ranking = self.score_of_players_till_now()
+            recipient_ids = list(zip(*players_ranking))[1]
+            recipient_75_percentile_scores = list(zip(*players_ranking))[2]
+            recipients_id_and_scores = []
+            for i in range(len(recipient_ids)):
+                recipients_id_and_scores.append((recipient_ids[i], recipient_75_percentile_scores[i]))
+            return list(map(lambda recipient_id_and_scores: self._prepare_bouquet_intermediate_day_15(remaining_flowers, recipient_id_and_scores), recipients_id_and_scores))
         else: # intermediate day
             self.current_day += 1
             prev_round_feedback = self.feedback[len(self.feedback)-1]
             recipient_ids = list(zip(*prev_round_feedback))[1] # sort recipiernt_ids by final score to prioritize players
             return list(map(lambda recipient_id: self._prepare_bouquet_intermediate_day(remaining_flowers, recipient_id), recipient_ids))
+
+    def score_of_players_till_now(self):
+        players_scores = []
+        for player in self.all_bouquets_by_element:
+            score = 0
+            scores = []
+            for bouquet in self.all_bouquets_by_element[player]:
+                score += bouquet[-1]
+                scores.append(bouquet[-1])
+            percentage_75_score = statistics.quantiles(scores, n = 4)[2]
+            players_scores.append((percentage_75_score, player, percentage_75_score))
+        players_ranking = sorted(players_scores, reverse=True)
+        return players_ranking
 
     def bouquet_to_elements(self, bouquet: Bouquet):
         elements = {}

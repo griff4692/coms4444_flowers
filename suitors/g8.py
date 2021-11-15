@@ -97,42 +97,35 @@ class Suitor(BaseSuitor):
             chosen_bouquets[suitor] = {}
             suitor_bouquet_counts[suitor] = 0
 
-        # Look at saved high-scoring bouquets and see if you can make the same bouquet
+        remaining_flowers_flattened = flatten_counter(remaining_flowers)
+
+        # Look at saved high-scoring bouquets and see if you can make the exact same bouquet
         for suitor_data in self.priority["saved_set"]:
             i = 0
             while(i < suitor_data[1]):
                 # Get saved bouquet and get its score per attr
                 bouquet = self.remember_high_scores[suitor_data[0]][i][0]
-                #print("in best_bouquet")
-                #print(bouquet)
-                score_attr = self.get_score_per_attr(bouquet, "bouquet")
-                #print("in best_bouquet, returned from get_score_per_attr")
-                all_possible_bouquets = self.get_all_possible_bouquets_size_6(remaining_flowers)
-                # all_possible_bouquets is a list of tuples
-                #print(all_possible_bouquets)
-                found = 0
-                for possible_bouquet in all_possible_bouquets:
-                    #print(possible_bouquet)
-                    score_attr_possible_bouquet = self.get_score_per_attr(possible_bouquet, "tuple")
-                    if(score_attr_possible_bouquet == None):
-                        continue
-                    if(score_attr == score_attr_possible_bouquet): # found an exact match
-                        found = 1
-                        break
-                # update remaining_flowers
-                if found:
-                    d1 = Counter(bouquet.flowers())
-                    d2 = Counter(possible_bouquet)
-                    d3 = d1 - d2
-                    remaining_flowers = dict(d3)
-                    chosen_bouquets[suitor_data[0]] = dict(d2)
-                    suitor_bouquet_counts[suitor_data[0]] = len(possible_bouquet)
+                new_bouquet = []
+                not_possible = 0
+                for flower in bouquet.flowers():
+                    if flower in remaining_flowers_flattened:
+                        new_bouquet.append(flower)
+                        remaining_flowers_flattened.remove(flower)
+                    else:
+                        # we don't have this flower and can't make exact same bouquet
+                        remaining_flowers_flattened = remaining_flowers_flattened + new_bouquet
+                        not_possible = 1
+
+                if not_possible == 0:
+                    # Victory! Found!
+                    chosen_bouquets[suitor_data[0]] = dict(Counter(new_bouquet))
+                    suitor_bouquet_counts[suitor_data[0]] = len(new_bouquet)
                     break
 
                 i = i + 1
 
 
-        flowers_in_market = flatten_counter(remaining_flowers)
+        flowers_in_market = remaining_flowers_flattened
 
         for flower in flowers_in_market:
             color = flower.color
@@ -240,9 +233,14 @@ class Suitor(BaseSuitor):
         for suitor in given:
             sum_rank = 0
             list_of_bouquets_and_scores = given[suitor]
+            total_days = 0
             for round in list_of_bouquets_and_scores:
                 sum_rank += round[2]
-            avg_rank = sum_rank / len(list_of_bouquets_and_scores)
+                if(round[2] != 0):
+                    total_days += 1
+
+            if total_days != 0:
+                avg_rank = sum_rank / total_days
 
             priority[suitor] = avg_rank
 
@@ -329,9 +327,10 @@ class Suitor(BaseSuitor):
                     score = rank_score[1]
                     suitor = i
                     self.given[suitor][-1][1] = score
-                    self.given[suitor][-1][2] = rank_score[0]
+                    # our internal rank is rank + ties - 1
+                    self.given[suitor][-1][2] = rank_score[0] + rank_score[2] - 1
 
-                    if score >= 0.95 and rank_score[0] == 1:   # Remember this bouquet
+                    if rank_score[0] == 1 or rank_score[0] == 2:   # Remember this bouquet
                         temp = []
                         temp.append(self.bouquets_given_this_round[suitor])
                         temp.append(score)
@@ -356,8 +355,7 @@ class Suitor(BaseSuitor):
 
             # Sort who has highest number of scores saved for priority class "saved_set"
             self.priority["saved_set"] = sorted(self.num_high_scores.items(), key=lambda x: x[1])
-            # Sort who has highest number of scores saved for priority class "rank"
-            # self.priority["rank"] = sorted(self.get_average_rank(self.given).items(), key = lambda x : x[1])
+            # self.priority["rank"] is a dict with keys = suitor, value = average rank
             self.priority["rank"] = self.get_average_rank(self.given)
             chosen_bouquets = self.best_bouquets(remaining_flowers, scores_per_player)
             bouquets = []

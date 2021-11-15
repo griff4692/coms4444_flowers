@@ -1,37 +1,25 @@
 import logging
+import math
 import random
-from collections import Counter, defaultdict
-
-from itertools import combinations
-import numpy as np
-from math import floor, inf, ceil
-from typing import Dict, Tuple, List, Union
 import warnings
+from collections import Counter, defaultdict
+from itertools import combinations
+from math import floor, inf
+from typing import Dict, Tuple, List
+
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
 from utils import flatten_counter
-import logging
+
 model, X, Y = {}, {}, {}
 
 
 def l2b(l: List[Flower]) -> Bouquet:
     return Bouquet(Counter(l))
 
-
-def jaccard(our_bouquet_preference, other_preference) -> float:
-    score = 0.0
-    count = 0
-    for key in our_bouquet_preference.keys():
-        count += 1
-        if key in other_preference:
-            intersection = min(our_bouquet_preference[key], other_preference[key])
-            union = max(our_bouquet_preference[key], other_preference[key])
-            score += intersection / union
-
-    return score / (count * 3)
 
 
 def bouquet_to_dictionary(bouquet: Bouquet, feature: str = None):
@@ -239,7 +227,7 @@ class Suitor(BaseSuitor):
             for t in FlowerTypes:
                 for c in FlowerColors:
                     possible_flowers.append(Flower(s, c, t))
-        count = random.randrange(3, 8)
+        count = 6
         for i in range(count):
             random_flower = random.choice(possible_flowers)
             bouquet[random_flower] += 1
@@ -249,6 +237,11 @@ class Suitor(BaseSuitor):
         self.queue = self.recipient_ids.copy()
         random.shuffle(self.queue)
         self.priority_queue = self.recipient_ids.copy()
+
+        s_type = self.score_types(bouquet_to_dictionary(self.favorite_bouquet, "type"))
+        s_color = self.score_colors(bouquet_to_dictionary(self.favorite_bouquet, "color"))
+        s_size = self.score_sizes(bouquet_to_dictionary(self.favorite_bouquet, "size"))
+        assert math.fabs(s_type + s_color + s_size - 1) < 0.01  # sanity check for score one
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
@@ -286,6 +279,19 @@ class Suitor(BaseSuitor):
 
         return bouquets
 
+    def jaccard(self, our_bouquet_preference, other_preference) -> float:
+        def scale(x: float) -> float:
+            estimate_max = 0.72 + self.num_suitors / 2 * 0.01 + self.days / 100 * 0.01
+            return min(1.0, x / estimate_max * 1.5) ** 2
+        score = 0.0
+        count = 0
+        for key in our_bouquet_preference.keys():
+            count += 1
+            if key in other_preference:
+                intersection = min(our_bouquet_preference[key], other_preference[key])
+                union = max(our_bouquet_preference[key], other_preference[key])
+                score += intersection / union
+        return scale(score / count) / 3
 
     def zero_score_bouquet(self):
         """
@@ -306,7 +312,7 @@ class Suitor(BaseSuitor):
         """
         # self.logger.info(self.favorite_bouquet.types, types)
         our_bouquet_type = bouquet_to_dictionary(self.favorite_bouquet, "type")
-        return jaccard(our_bouquet_type, types)
+        return self.jaccard(our_bouquet_type, types)
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
@@ -314,7 +320,7 @@ class Suitor(BaseSuitor):
         :return: A score representing preference of the flower colors in the bouquet
         """
         our_bouquet_color = bouquet_to_dictionary(self.favorite_bouquet, "color")
-        return jaccard(our_bouquet_color, colors)
+        return self.jaccard(our_bouquet_color, colors)
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
@@ -322,7 +328,7 @@ class Suitor(BaseSuitor):
         :return: A score representing preference of the flower sizes in the bouquet
         """
         our_bouquet_size = bouquet_to_dictionary(self.favorite_bouquet, "size")
-        return jaccard(our_bouquet_size, sizes)
+        return self.jaccard(our_bouquet_size, sizes)
 
     def receive_feedback(self, feedback: List[Tuple[List[int], List[float], List]]):
         """

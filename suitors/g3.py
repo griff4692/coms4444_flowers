@@ -1,7 +1,10 @@
 import logging
 import random
 from collections import Counter, defaultdict
-from math import floor, inf
+
+from itertools import combinations
+import numpy as np
+from math import floor, inf, ceil
 from typing import Dict, Tuple, List, Union
 import warnings
 import pandas as pd
@@ -10,7 +13,7 @@ from sklearn.linear_model import LinearRegression
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
 from utils import flatten_counter
-
+import logging
 model, X, Y = {}, {}, {}
 
 
@@ -174,13 +177,46 @@ def learned_weightage(bouquet_feedback, factor):
     return res
 
 
-def arrange_random(flower_counts: Dict[Flower, int]) -> Tuple[Dict[Flower, int], Bouquet]:
-    bouquet_size = min(sum(flower_counts.values()), random.randint(1, 10))
+def arrange_random(flower_counts: Dict[Flower, int], offered_bouquet_sizes):
+    if len(offered_bouquet_sizes) == 12:
+        offered_bouquet_sizes.clear()
+    random_range = list(set(range(1, 13)) - set(offered_bouquet_sizes))
+    bouquet_size = min(sum(flower_counts.values()), random.choice(random_range))
+    #bouquet_size = ceil(np.random.normal(loc=6.5, scale=2.5))
+    #bouquet_size = 1 if bouquet_size < 1 else 12 if bouquet_size > 12 else bouquet_size
+    #bouquet_size = min(sum(flower_counts.values()), bouquet_size)
+    offered_bouquet_sizes.append(bouquet_size)
     res = random.sample(flatten_counter(flower_counts), k=bouquet_size)
     flower_counts = flower_counts.copy()
     for f in res:
         flower_counts[f] -= 1
     return flower_counts, l2b(res)
+
+def generate_similar_bouquet(flower_counts: Dict[Flower, int], desired_bouquet):
+    desired_bouquet_size = len(desired_bouquet.flowers())
+    desired_size = bouquet_to_dictionary(desired_bouquet, "size")
+    desired_type = bouquet_to_dictionary(desired_bouquet, "type")
+    desired_color = bouquet_to_dictionary(desired_bouquet, "color")
+    best_score = 0
+    best_bouquet = None
+    for size in range(desired_bouquet_size, sum(flower_counts.values()), -1):
+        possible_bouquets = combinations(flatten_counter(flower_counts), size)
+        for bouquet in possible_bouquets:
+            bouquet_size = bouquet_to_dictionary(bouquet, "size")
+            bouquet_type = bouquet_to_dictionary(bouquet, "type")
+            bouquet_color = bouquet_to_dictionary(bouquet, "color")
+            size_score = jaccard(desired_size, bouquet_size)
+            type_score = jaccard(desired_type, bouquet_type)
+            color_score = jaccard(desired_color, bouquet_color)
+            score = size_score + type_score + color_score
+            if score == 1 or (1-score) < 0.00001:
+                return bouquet
+            elif score > best_score:
+                best_score = score
+                best_bouquet = bouquet
+
+    return best_bouquet
+
 
 
 class Suitor(BaseSuitor):
@@ -207,6 +243,12 @@ class Suitor(BaseSuitor):
             bouquet[random_flower] += 1
         self.favorite_bouquet = Bouquet(bouquet)
         self.recipient_ids = [i for i in range(self.num_suitors) if i != self.suitor_id]
+        self.offered_bouquet_sizes = {id: [] for id in self.recipient_ids}
+        self.pday = days//2
+        self.pruning = False
+        self.queue = self.recipient_ids.copy()
+        random.shuffle(self.queue)
+        self.priority_queue = self.recipient_ids.copy()
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
@@ -221,13 +263,21 @@ class Suitor(BaseSuitor):
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
         self.day_count += 1
+
+
         if self.day_count >= self.first_pruning:
+            # self.priority_queue.copy()
             flower_counts, bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts.copy())
         else:
             bouquets = list()
-            recipient_ids = self.recipient_ids.copy()
-            random.shuffle(recipient_ids)
+            recipient_ids = self.queue.copy()
             for r_id in recipient_ids:
+                if sum(flower_counts.values()) == 0:
+                    b = Bouquet(dict())
+                else:
+                    flower_counts, b = arrange_random(flower_counts, self.offered_bouquet_sizes[r_id])
+                if self.day_count < self.first_pruning:
+                    self.queue.append(self.queue.pop(0))
                 flower_counts, b = arrange_random(flower_counts)
                 bouquets.append((self.suitor_id, r_id, b))
 
@@ -238,6 +288,7 @@ class Suitor(BaseSuitor):
             self.bouquet_feedback[r]["type"].append(bouquet_to_dictionary(v, "type"))
 
         return bouquets
+
 
     def zero_score_bouquet(self):
         """

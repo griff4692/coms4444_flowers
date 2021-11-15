@@ -116,7 +116,7 @@ class Suitor(BaseSuitor):
             size += 1
         if size > num_remaining:
             size = num_remaining
-        print(self.weights[recipient_id])
+        
         # changes = 0
         if size > 0:
             scored_flowers = []
@@ -279,7 +279,7 @@ class Suitor(BaseSuitor):
                 bouqs = self.bouq_Dict[i]
                 highest = 0
                 for bouq in bouqs:
-                    print(bouq[1])
+                    
                     if (bouq[1]==1.0):
                         already_know = 1
                     score_prio = bouq[1] * ((self.num_suitors - bouq[2])/(self.num_suitors - 1))*((self.num_suitors - bouq[3])/(self.num_suitors-1))
@@ -293,7 +293,7 @@ class Suitor(BaseSuitor):
                     score_Dict[i] = highest
             
             score_Dict = dict(sorted(score_Dict.items(), key=lambda item: item[1], reverse=True))
-            print(score_Dict)
+            
             
             return list(map(lambda recipient_id: self._prepare_bouquet_inter_rounds(remaining_flowers, recipient_id), score_Dict.keys()))
 
@@ -321,6 +321,26 @@ class Suitor(BaseSuitor):
         
         return Bouquet(bouq)
 
+
+    def logistic_func(self, max_val, index, optimum_count, zero_count):
+        mid_pt = abs(optimum_count - zero_count) / 2
+        k = 1.5
+        """ if (index < optimum_count):
+            index += optimum_count
+        else: # index > opttimum_count
+            index -= optimum_count """
+        val = -1 * max_val / (1 + np.exp(-k * (index - mid_pt)))
+        val += max_val
+        
+        return val
+    
+    def exponential_func(self, max_val, index, optimum_count, zero_count):
+        denom = 2 - (abs(optimum_count - zero_count) / 15)
+        val = pow((1 / denom), index) * max_val
+
+        return val
+
+
     def score_num(self, count: int):
 
         if count == 0:
@@ -336,9 +356,11 @@ class Suitor(BaseSuitor):
         else:
             zero_count = 0
 
-        dist_frac = max_num_score / abs(zero_count - optimum_count)
+        #dist_frac = max_num_score / abs(zero_count - optimum_count)
         index = abs(count - optimum_count)
-        num_score += max_num_score - (dist_frac * index)
+        func_score = self.logistic_func(max_num_score, index, optimum_count, zero_count)
+        #func_score = self.exponential_func(max_num_score, index, optimum_count, zero_count)
+        num_score += func_score
 
         return num_score / 3
 
@@ -372,10 +394,13 @@ class Suitor(BaseSuitor):
             else:
                 zero_count = 0
             
-            dist_frac = max_type_score / abs(zero_count - optimum_count)
+            #dist_frac = max_type_score / abs(zero_count - optimum_count)
             index = abs(bouq_type_count[i] - optimum_count)
-            type_score += max_type_score - (dist_frac * index)
-        
+            func_score = self.logistic_func(max_type_score, index, optimum_count, zero_count)
+            #func_score = self.exponential_func(max_type_score, index, optimum_count, zero_count)
+            #type_score += max_type_score - (dist_frac * index)
+            type_score += func_score
+            
         return type_score + self.score_num(len(types))
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
@@ -409,8 +434,11 @@ class Suitor(BaseSuitor):
             
             dist_frac = max_color_score / abs(zero_count - optimum_count)
             index = abs(bouq_color_count[i] - optimum_count)
-            color_score += max_color_score - (dist_frac * index)
-        
+            func_score = self.logistic_func(max_color_score, index, optimum_count, zero_count)
+            #func_score = self.exponential_func(max_color_score, index, optimum_count, zero_count)
+            #color_score += max_color_score - (dist_frac * index)
+            color_score += func_score
+            
         return color_score + self.score_num(len(colors))
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
@@ -442,9 +470,12 @@ class Suitor(BaseSuitor):
             else:
                 zero_count = 0
             
-            dist_frac = max_size_score / abs(zero_count - optimum_count)
+            #dist_frac = max_size_score / abs(zero_count - optimum_count)
             index = abs(bouq_size_count[i] - optimum_count)
-            size_score += max_size_score - (dist_frac * index)
+            func_score = self.logistic_func(max_size_score, index, optimum_count, zero_count)
+            #func_score = self.exponential_func(max_size_score, index, optimum_count, zero_count)
+            #size_score += max_size_score - (dist_frac * index)
+            size_score += func_score
         
         return size_score + self.score_num(len(sizes))
 

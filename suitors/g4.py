@@ -13,6 +13,7 @@ from constants import MAX_BOUQUET_SIZE
 # color, type, size ratio in experiments
 CTS_RATIO = [6, 4, 3]
 
+
 class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
         """
@@ -167,12 +168,14 @@ class Suitor(BaseSuitor):
             self.update_results()
 
         if self.remaining_turns == 0:
+
+            # pick our favorite recipients according to past ranks
+            # for recipient in self.recipient_ids:
+            #     recipient_ranks = np.asarray(self.experiments[recipient][exp_type])[:, 0]
+
             # TODO final round, give the bouquet with the highest score from the previous tryouts\
             for i in self.recipient_ids:
-                go_random = False
                 if len(self.experiments[i]) != 0:
-                    highest_temp = -math.inf
-                    maximum_bouquet = None
                     # for each recipient, if we have data for them, get the highest score and return the same combination to them
                     sortedList = []
                     for j in self.experiments[i].values():
@@ -417,6 +420,7 @@ class Suitor(BaseSuitor):
                 bouquet_given, exp_type = self.last_bouquet[list(self.recipient_ids).index(i)][2], \
                                           self.last_bouquet[list(self.recipient_ids).index(i)][3]
 
+                # player[exp_type].append([bouquet_given, results[i][0], results[i][1]]) # TODO add rank to self.experiments
                 player[exp_type].append([bouquet_given, results[i][1]])
 
     @staticmethod

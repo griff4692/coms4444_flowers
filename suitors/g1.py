@@ -29,11 +29,14 @@ class Suitor(BaseSuitor):
 
         self.color_map = {0: "W", 1: "Y", 2: "R", 3: "P", 4: "O", 5: "B"}
 
-        if num_suitors > 2:
-            exponent = log(1 - 1 / (num_suitors - 1)) / (days - 1)
-            self.percentage = 1 - exp(exponent)
+        if days == 1:
+            self.percentage = 1 / (num_suitors - 1)
         else:
-            self.percentage = 1 / (days - 1)
+            if num_suitors > 2:
+                exponent = log(1 - 1 / (num_suitors - 1)) / (days - 1)
+                self.percentage = 1 - exp(exponent)
+            else:
+                self.percentage = 1 / (days - 1)
 
         # step 3: choose our one score flowers from the color probability table
         # score_one_flowers_for_us: the score of our choices of colors to be 1.0

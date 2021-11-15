@@ -36,6 +36,11 @@ def numbers_with_sum(n, k):
     num = random.randint(0, k)
     return [num] + numbers_with_sum(n - 1, k - num)
 
+name_to_flower_attributes = {
+    'type': FlowerTypes,
+    'color': FlowerColors,
+    'size': FlowerSizes
+}
 
 class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
@@ -55,7 +60,8 @@ class Suitor(BaseSuitor):
         self.exploration_alpha_decay = self.exploration_alpha / days
         self.num_suitors = num_suitors - 1
 
-        self.num_flowers_in_bouquet = self.get_random_num_flowers(seed=2)
+        # self.num_flowers_in_bouquet = self.get_random_num_flowers(seed=2)
+        self.num_flowers_in_bouquet = 9
         self.our_favorite_bouquet = self.get_random_bouquet(num_flowers = self.num_flowers_in_bouquet)
         self.scoring_weight = {'type': 0.3, 'color':0.5, 'size':0.2}
         for i in range(num_suitors):
@@ -92,9 +98,9 @@ class Suitor(BaseSuitor):
         type_means = self.split_counts([type for type in FlowerTypes], num_flowers)
         color_means = self.split_counts([color for color in FlowerColors], num_flowers)
         return {
-            'sizes': size_means,
-            'types': type_means,
-            'colors': color_means
+            'size': size_means,
+            'type': type_means,
+            'color': color_means
         }
 
     def split_counts(self, items_to_split, max_number):
@@ -366,24 +372,31 @@ class Suitor(BaseSuitor):
         for unit in units:
             guess = guessed_counts[unit] if unit in guessed_counts else 0
             target = target_counts[unit] if unit in target_counts else 0
-            d += abs(target - guess)
-        return d/2 if d!=0 and d!=1 else d
+            d += max(target - guess, 0)
+        # print("distance calculation")
+        # print(unit, d)
+        return 2*d
+        # return abs(12 - sum(guessed_counts.values()))
+
+    def score_attribute(self, attribute_name, guess):
+        if sum(guess.values()) == 0:
+            return 0
+        distance = self.calculate_distance(guess, self.our_favorite_bouquet[attribute_name], name_to_flower_attributes[attribute_name])
+        weight = self.scoring_weight[attribute_name]
+
+        if distance == 0:
+            return weight
+
+        else:
+            # return weight / distance
+            return max((weight - (distance) * 0.05), 0)
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        if sum(types.values()) == 0:
-            return 0
-        distance = self.calculate_distance(types, self.our_favorite_bouquet['types'], FlowerTypes)
-        weight = self.scoring_weight['type']
-
-        if distance == 0:
-            return weight
-
-        else:
-            return weight / distance
+        return self.score_attribute('type', types)
         
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
@@ -391,32 +404,14 @@ class Suitor(BaseSuitor):
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        if sum(colors.values()) == 0:
-            return 0
-        distance = self.calculate_distance(colors, self.our_favorite_bouquet['colors'], FlowerColors)
-        weight = self.scoring_weight['color']
-
-        if distance == 0:
-            return weight
-
-        else:
-            return weight / distance
+        return self.score_attribute('color', colors)
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
-        if sum(sizes.values()) == 0:
-            return 0
-        distance = self.calculate_distance(sizes, self.our_favorite_bouquet['sizes'], FlowerSizes)
-        weight = self.scoring_weight['size']
-
-        if distance == 0:
-            return weight
-
-        else:
-            return weight / distance
+        return self.score_attribute('size', sizes)
 
     def adjust_scoring_function(self, prev_s, curr_s, o_id, bouquet):
         if curr_s < prev_s:

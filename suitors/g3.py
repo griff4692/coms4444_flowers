@@ -115,10 +115,12 @@ def decide_bouquet(flowers1, flowers2):
     return flowers1
 
 
-def learned_bouquets(bouquet_feedback, suitor, flower_counts):
+def learned_bouquets(bouquet_feedback, suitor, flower_counts, recipient_ids):
     res = []
     global model
-    for recipient in bouquet_feedback.keys():
+    if suitor in recipient_ids :
+        recipient_ids.remove(suitor)
+    for recipient in recipient_ids:
         model = {"color": LinearRegression(), "size": LinearRegression(), "type": LinearRegression()}
         color_weights = learned_weightage(bouquet_feedback[recipient], "color")
         size_weights = learned_weightage(bouquet_feedback[recipient], "size")
@@ -135,7 +137,7 @@ def learned_bouquets(bouquet_feedback, suitor, flower_counts):
 
 def learned_weightage(bouquet_feedback, factor):
     global X, Y
-    flower_for_each_round = random.randrange(4, 8)
+    flower_for_each_round = random.randrange(2, 10)
     df = pd.DataFrame(bouquet_feedback[factor]).fillna(0)
     df = df.drop(labels="rank", axis=1)
     Y[factor] = df["score"]
@@ -244,8 +246,6 @@ class Suitor(BaseSuitor):
         self.favorite_bouquet = Bouquet(bouquet)
         self.recipient_ids = [i for i in range(self.num_suitors) if i != self.suitor_id]
         self.offered_bouquet_sizes = {id: [] for id in self.recipient_ids}
-        self.pday = days//2
-        self.pruning = False
         self.queue = self.recipient_ids.copy()
         random.shuffle(self.queue)
         self.priority_queue = self.recipient_ids.copy()
@@ -266,19 +266,16 @@ class Suitor(BaseSuitor):
 
 
         if self.day_count >= self.first_pruning:
-            # self.priority_queue.copy()
-            flower_counts, bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts.copy())
+            flower_counts, bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts.copy(), self.priority_queue)
         else:
             bouquets = list()
-            recipient_ids = self.queue.copy()
-            for r_id in recipient_ids:
+            for r_id in self.queue:
                 if sum(flower_counts.values()) == 0:
                     b = Bouquet(dict())
                 else:
                     flower_counts, b = arrange_random(flower_counts, self.offered_bouquet_sizes[r_id])
                 if self.day_count < self.first_pruning:
                     self.queue.append(self.queue.pop(0))
-                flower_counts, b = arrange_random(flower_counts)
                 bouquets.append((self.suitor_id, r_id, b))
 
         for b in bouquets:

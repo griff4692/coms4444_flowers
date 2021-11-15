@@ -47,6 +47,7 @@ class Suitor(BaseSuitor):
             self.given[suitor] = [] # list for each suitor, will be list of lists with [bouquet, score]
         self.days_left = days
         self.day_number = 0
+        self.random_tested_suitors = []
         self.initalize_controlled_strat()
         self.suitors_to_test = list(self.recipient_ids)
         # Dictionary to remember if we receive score > 0.95 and rank 1 for any bouquet given
@@ -318,25 +319,13 @@ class Suitor(BaseSuitor):
 
         To get the list of suitor ids not including yourself, use the following snippet:"""
 
-        if self.days > 30:
-            self.day_number += 1
-            if self.day_number == self.days:
-                scores_per_player = self.convert_prefs_to_scores_per_player()
-                # scores_per_player is already excluding us, and is in order of the other suitors (index = suitor)
-                chosen_bouquets = self.best_bouquets(flower_counts.copy(), scores_per_player)
-                bouquets = []
-                for suitor in chosen_bouquets:
-                    bouquets.append((self.suitor_id, suitor, Bouquet(chosen_bouquets[suitor])))
-                # print(str(self.suitor_id) + str(self.size_weights) +str(self.type_weights) + str(self.color_weights))
-                return bouquets
-            return self.use_controlled_strategy(flower_counts.copy())
-
+        self.day_number += 1
 
         # this loop inputs the score for each bouquet we gave last round
         if len(self.feedback)!=0:
             this_rounds_feedback = self.feedback[-1]
             for i,rank_score in enumerate(this_rounds_feedback): # rank_score is tuple with rank,score,ties
-                if i!=self.suitor_id:
+                if i in self.random_tested_suitors:
                     score = rank_score[1]
                     suitor = i
                     self.given[suitor][-1][1] = score
@@ -349,46 +338,48 @@ class Suitor(BaseSuitor):
                         self.remember_high_scores[suitor].append(temp)
                         self.num_high_scores[suitor] = self.num_high_scores[suitor] + 1
 
-            print("-------------------------------------------------------------------------------------------------------------")
-            print(self.remember_high_scores)
+            # print("-------------------------------------------------------------------------------------------------------------")
+            # print(self.remember_high_scores)
 
-
-
-        all_ids = np.arange(self.num_suitors)
-        recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
 
+        # Is final day, so prepare special bouquets
+        if self.day_number == self.days:
+            if self.days > 30:
+                # Means we have used controlled strat, so scoring prefs for each player is different
+                scores_per_player = self.convert_prefs_to_scores_per_player()
+            else:
+                # list of (self.suitor_id, recipient_id, chosen_bouquet)
+                scores_per_player = self.scores_per_player(
+                    self.given)  # list of dictionaries {number: [number preferences], color: [color preferences], etc.}
+                # scores_per_player is already excluding us, and is in order of the other suitors (index = suitor)
 
-        # on the last day prepare special bouquets
-        if self.days_left==1:
-            # list of (self.suitor_id, recipient_id, chosen_bouquet)
-            scores_per_player = self.scores_per_player(self.given) # list of dictionaries {number: [number preferences], color: [color preferences], etc.}
-            # scores_per_player is already excluding us, and is in order of the other suitors (index = suitor)
             # Sort who has highest number of scores saved for priority class "saved_set"
-            self.priority["saved_set"] = sorted(self.num_high_scores.items(), key = lambda x : x[1])
+            self.priority["saved_set"] = sorted(self.num_high_scores.items(), key=lambda x: x[1])
             # Sort who has highest number of scores saved for priority class "rank"
-            #self.priority["rank"] = sorted(self.get_average_rank(self.given).items(), key = lambda x : x[1])
+            # self.priority["rank"] = sorted(self.get_average_rank(self.given).items(), key = lambda x : x[1])
             self.priority["rank"] = self.get_average_rank(self.given)
-
             chosen_bouquets = self.best_bouquets(remaining_flowers, scores_per_player)
             bouquets = []
             for suitor in chosen_bouquets:
                 bouquets.append((self.suitor_id, suitor, Bouquet(chosen_bouquets[suitor])))
+            return bouquets
+
+        if self.days > 30:
+            # Use controlled strat
+            return self.use_controlled_strategy(remaining_flowers)
         else:
+            # Use random giving strat
             # this loop saves the bouquets so next round we can see the scores
             bouquets = list(
-                map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
+                map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), self.recipient_ids))
+            self.random_tested_suitors = list(self.recipient_ids)
             for bouquet in bouquets:
                 player_given_to = bouquet[1]
                 actual_bouquet = bouquet[2]
                 self.given[player_given_to].append([actual_bouquet, 0, 0])
-
                 self.bouquets_given_this_round[player_given_to] = actual_bouquet
-            self.days_left=self.days_left-1
-
-
-
-        return bouquets
+            return bouquets
 
     def zero_score_bouquet(self):
         """
@@ -540,7 +531,6 @@ class Suitor(BaseSuitor):
     def initalize_controlled_strat(self):
         self.prefs = {}
         self.controlled_strat = {}
-        self.controlled_given = {}
         for suitor in self.recipient_ids:
             self.controlled_strat[suitor] = {
                 "colors" : [c for c in FlowerColors],
@@ -567,7 +557,6 @@ class Suitor(BaseSuitor):
                 "Begonia": 0,
                 "None": 0
             }
-            self.controlled_given[suitor] = []
 
     def start_controlled_color(self, suitor, flower):
         self.controlled_strat[suitor]["colors"].remove(flower.color)
@@ -661,9 +650,10 @@ class Suitor(BaseSuitor):
         bouquets = []
         random_bouquets = list(
             map(lambda recipient_id: self._prepare_random_bouquet(flowers_in_market, recipient_id), remaining_receipients))
+        self.random_tested_suitors = list(remaining_receipients)
         for bouquet in random_bouquets:
-            # TODO: Do something with these values
-            self.controlled_given[bouquet[1]].append([bouquet[2], 0])
+            self.given[bouquet[1]].append([bouquet[2], 0, 0])
+            self.bouquets_given_this_round[bouquet[1]] = bouquet[2]
         for k, v in chosen_bouquets.items():
             bouquets.append((self.suitor_id, k, Bouquet({v: 1})))
         return bouquets + random_bouquets

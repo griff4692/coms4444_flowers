@@ -123,7 +123,8 @@ def learned_bouquets(bouquet_feedback, suitor, flower_counts):
         flowers1 = {"color": color_weights, "size": size_weights, "type": type_weights}
         flowers2 = best_given_bouquet(bouquet_feedback[recipient])
         flowers = decide_bouquet(flowers1, flowers2)
-        flower_counts, r = estimate_flowers_in_bouquets(flowers["color"], flowers["size"], flowers["type"], flower_counts)
+        flower_counts, r = estimate_flowers_in_bouquets(flowers["color"], flowers["size"], flowers["type"],
+                                                        flower_counts)
         bouquet = Bouquet(r)
         res.append((suitor, recipient, bouquet))
 
@@ -183,6 +184,21 @@ def arrange_random(flower_counts: Dict[Flower, int]) -> Tuple[Dict[Flower, int],
     return flower_counts, l2b(res)
 
 
+def priority(recipient_ids, bouquet_feedback):
+    ordering = [(r_id,
+                 bouquet_feedback[r_id]["size"][-1]["score"],
+                 bouquet_feedback[r_id]["size"][-1]["rank"]) for r_id in recipient_ids]
+    # first pass: sort by rank and then by score
+    ordering = sorted(ordering, key=lambda y: (y[2], -y[1]))
+    # second pass: move players we score 0 on to back
+    for i in range(len(ordering)):
+        if ordering[i][1] == 0:
+            ordering.append(ordering.pop(i))
+
+    new_r_ids = [r_id for r_id, _, _ in ordering]
+    return new_r_ids
+
+
 class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
         """
@@ -222,6 +238,7 @@ class Suitor(BaseSuitor):
         """
         self.day_count += 1
         if self.day_count >= self.first_pruning:
+            recipient_ids = priority(self.recipient_ids, self.bouquet_feedback)
             flower_counts, bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts.copy())
         else:
             bouquets = list()
@@ -230,6 +247,7 @@ class Suitor(BaseSuitor):
             for r_id in recipient_ids:
                 flower_counts, b = arrange_random(flower_counts)
                 bouquets.append((self.suitor_id, r_id, b))
+                self.recipient_ids.append(self.recipient_ids.pop(0))
 
         for b in bouquets:
             _, r, v = b

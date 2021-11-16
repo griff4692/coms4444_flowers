@@ -38,7 +38,6 @@ class Suitor(BaseSuitor):
             mask = [True for n in range(ones)] + [False for n in range(zeros)]
             random.shuffle(mask)
             self.alloptions = list(itertools.compress(self.alloptions, mask))
-            print(self.alloptions)
             self.null = 3 # so its ignored by scoring methods
         self.given = {} # dictionary to save the bouquets we gave + their scores
         all_ids = np.arange(self.num_suitors)
@@ -100,6 +99,7 @@ class Suitor(BaseSuitor):
         remaining_flowers_flattened = flatten_counter(remaining_flowers)
 
         # Look at saved high-scoring bouquets and see if you can make the exact same bouquet
+        suitors_with_perfect_bouquets = []
         for suitor_data in self.priority["saved_set"]:
             i = 0
             while(i < suitor_data[1]):
@@ -120,14 +120,46 @@ class Suitor(BaseSuitor):
                     # Victory! Found!
                     chosen_bouquets[suitor_data[0]] = dict(Counter(new_bouquet))
                     suitor_bouquet_counts[suitor_data[0]] = len(new_bouquet)
+                    suitors_with_perfect_bouquets.append(suitor_data[0])
                     break
 
                 i = i + 1
 
 
         flowers_in_market = remaining_flowers_flattened
+        for suitor in self.priority["rank"]:
+            if suitor not in suitors_with_perfect_bouquets:
+                flowers_list = []
+                for flower in flowers_in_market:
+                    color = flower.color
+                    type = flower.type
+                    size = flower.size
+                    color_score = scores_per_player[suitor]["color"][color.value]
+                    type_score = scores_per_player[suitor]["type"][type.value]
+                    size_score = scores_per_player[suitor]["size"][size.value]
+                    total_score = color_score + type_score + size_score
+                    flowers_list.append((flower, total_score))
+                flowers_list.sort(key=lambda tup: tup[1])
+                flowers_list.reverse()
+                if len(flowers_in_market) > 7:
+                    for tuple in flowers_list[:7]:
+                        flower = tuple[0]
+                        if flower in chosen_bouquets[suitor]:
+                            chosen_bouquets[suitor][flower] = chosen_bouquets[suitor][flower] + 1
+                        else:
+                            chosen_bouquets[suitor][flower] = 1
+                        flowers_in_market.remove(flower)
+                else:
+                    for tuple in flowers_list:
+                        flower = tuple[0]
+                        if flower in chosen_bouquets[suitor]:
+                            chosen_bouquets[suitor][flower] = chosen_bouquets[suitor][flower] + 1
+                        else:
+                            chosen_bouquets[suitor][flower] = 1
+                        flowers_in_market.remove(flower)
 
-        for flower in flowers_in_market:
+        # OLD GIVING
+        """for flower in flowers_in_market:
             color = flower.color
             type = flower.type
             size = flower.size
@@ -147,7 +179,7 @@ class Suitor(BaseSuitor):
                 chosen_bouquets[suitor_getting_flower][flower] = chosen_bouquets[suitor_getting_flower][flower]+1
             else:
                 chosen_bouquets[suitor_getting_flower][flower] = 1
-            suitor_bouquet_counts[suitor_getting_flower] = suitor_bouquet_counts[suitor_getting_flower] + 1
+            suitor_bouquet_counts[suitor_getting_flower] = suitor_bouquet_counts[suitor_getting_flower] + 1"""
 
         return chosen_bouquets
 
@@ -178,7 +210,6 @@ class Suitor(BaseSuitor):
             preferences["size"] = [float(i) / (max(preferences["size"]) + 1e-6) for i in preferences["size"]]
             preferences["type"] = [float(i) / (max(preferences["type"]) + 1e-6) for i in preferences["type"]]
             scores_by_attribute[suitor] = preferences
-        print(scores_by_attribute)
         return scores_by_attribute
 
     def scores_per_player(self, given):
@@ -343,7 +374,7 @@ class Suitor(BaseSuitor):
         remaining_flowers = flower_counts.copy()
 
         # Is final day, so prepare special bouquets
-        if self.day_number == self.days:
+        if self.day_number-1 == self.days:
             if self.days > 30:
                 # Means we have used controlled strat, so scoring prefs for each player is different
                 scores_per_player = self.convert_prefs_to_scores_per_player()

@@ -184,7 +184,7 @@ def arrange_random(flower_counts: Dict[Flower, int]) -> Tuple[Dict[Flower, int],
     return flower_counts, l2b(res)
 
 
-def priority(recipient_ids, bouquet_feedback):
+def priority(recipient_ids, bouquet_feedback, final_round=False):
     ordering = [(r_id,
                  bouquet_feedback[r_id]["size"][-1]["score"],
                  bouquet_feedback[r_id]["size"][-1]["rank"]) for r_id in recipient_ids]
@@ -194,6 +194,11 @@ def priority(recipient_ids, bouquet_feedback):
     for i in range(len(ordering)):
         if ordering[-i][1] == 0:
             ordering.append(ordering.pop(-i))
+    # if not the final round, move players we score 1 on to back as well
+    if not final_round:
+        for i in range(len(ordering)):
+            if ordering[-i][1] == 1:
+                ordering.append(ordering.pop(-i))
     new_r_ids = [r_id for r_id, _, _ in ordering]
     return new_r_ids
 

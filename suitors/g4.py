@@ -318,8 +318,8 @@ class Suitor(BaseSuitor):
             self.update_results()
 
         # Testing round -- comment out this code to run testing round
-        # if self.remaining_turns == 1:
-        #     return self._testing_round(flower_counts)
+        if self.remaining_turns == 1:
+            return self._testing_round(flower_counts)
 
         if self.remaining_turns == 0:
 

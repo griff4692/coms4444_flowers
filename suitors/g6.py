@@ -201,7 +201,7 @@ class Suitor(BaseSuitor):
                 lin_reg.fit(hist_nparr, pd.Series(self.score_hist[i]))
 
                 pred_score = lin_reg.predict(all_possible_bouquets_nparr)
-                pdb.set_trace()
+                #pdb.set_trace() 
 
                 # getting first instance of best score and using that bouquet
                 best_flowers = all_possible_bouquets_arr[np.where(pred_score == max(pred_score))[0][0]]

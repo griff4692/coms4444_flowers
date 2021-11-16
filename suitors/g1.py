@@ -75,8 +75,9 @@ class Suitor(BaseSuitor):
 
         # test others hypothesis: whether they separately the types/sizes/colors,
         # we test the hypothesis for the next 3 days
-        self.guess_other_threhold = 21
-        self.test_other_hypothesis_days = [3] * num_suitors
+        self.guess_other_threhold = 7
+        self.guess_other_times = 3
+        self.test_other_hypothesis_days = [self.guess_other_times] * num_suitors
         self.test_other_hypothesis = [0] * num_suitors
 
     # if the remaining flowers can construct our strategy colors, return True, else return False
@@ -99,20 +100,43 @@ class Suitor(BaseSuitor):
         return True
 
     # if the remaining flowers can construct other strategy colors, return True, else return False
-    def can_construct_other_strategy(self, remaining_flowers: Dict[Flower, int], want_flowers: Dict[Flower, int]) -> bool:
+    def can_construct_other_strategy(self, remaining_flowers: Dict[Flower, int],
+                                     want_flowers: Dict[Flower, int]) -> bool:
         remain_colors_map = defaultdict(int)
+        remain_types_map = defaultdict(int)
+        remain_sizes_map = defaultdict(int)
         for flower, count in remaining_flowers.items():
             remain_colors_map[flower.color] += count
+            remain_types_map[flower.type] += count
+            remain_sizes_map[flower.size] += count
 
         want_colors_map = defaultdict(int)
+        want_types_map = defaultdict(int)
+        want_sizes_map = defaultdict(int)
         for flower, count in want_flowers.items():
             want_colors_map[flower.color] += count
+            want_types_map[flower.type] += count
+            want_sizes_map[flower.size] += count
 
         for color, count in want_colors_map.items():
             if color not in remain_colors_map:
                 return False
 
             if count > remain_colors_map[color]:
+                return False
+
+        for flower_type, count in want_types_map.items():
+            if flower_type not in remain_types_map:
+                return False
+
+            if count > remain_types_map[flower_type]:
+                return False
+
+        for flower_size, count in want_sizes_map.items():
+            if flower_size not in remain_sizes_map:
+                return False
+
+            if count > remain_sizes_map[flower_size]:
                 return False
 
         return True
@@ -136,57 +160,158 @@ class Suitor(BaseSuitor):
                 remain_probability -= probability
                 self.score_one_flowers_for_us[size].append(flower)
 
-    # for each player, randomly guess what they want if we haven't got score 1 for their group
-    def _prepare_bouquet(self, remaining_flowers, recipient_id):
-        if self.has_our_strat[recipient_id] == 0 and self.score_1_bouquet[recipient_id] is not None:
+    def construct_our_strategy_flowers(self, recipient_id, remaining_flowers):
+        flowers_sent = self.score_1_bouquet[recipient_id]
 
-            flowers_sent = self.score_1_bouquet[recipient_id]
+        if not self.can_construct_our_strategy(remaining_flowers, flowers_sent):
+            chosen_flower_counts = dict()
+        else:
+            colors_count = defaultdict(int)
+            for f, i in flowers_sent.items():
+                colors_count[f.color] += i
 
-            if not self.can_construct_our_strategy(remaining_flowers, flowers_sent):
+            rem_flowers_list = flatten_counter(remaining_flowers)
+            # essentially choose a random bouquet of same color count
+            random.shuffle(rem_flowers_list)
+
+            chosen_flower_counts = defaultdict(int)
+            for f in rem_flowers_list:
+                if len(colors_count) == 0:
+                    break
+
+                if f.color in colors_count:
+                    chosen_flower_counts[f] += 1
+                    colors_count[f.color] -= 1
+                    if colors_count[f.color] == 0:
+                        del colors_count[f.color]
+
+            # couldn't color copy
+            if len(colors_count) > 0:
                 chosen_flower_counts = dict()
-            else:
-                colors_count = [0] * 6
-                for f, i in flowers_sent.items():
-                    colors_count[f.color.value] += i
 
-                rem_flowers_list = flatten_counter(remaining_flowers)
-                # essentially choose a random bouquet of same color count
+        return chosen_flower_counts
+
+    def construct_other_strategy_flowers(self, recipient_id, remaining_flowers):
+        flowers_sent = self.score_1_bouquet[recipient_id]
+
+        if not self.can_construct_other_strategy(remaining_flowers, flowers_sent):
+            chosen_flower_counts = dict()
+        else:
+            types_count = defaultdict(int)
+            colors_count = defaultdict(int)
+            sizes_count = defaultdict(int)
+
+            for flower, count in flowers_sent.items():
+                types_count[flower.type] += count
+                colors_count[flower.color] += count
+                sizes_count[flower.size] += count
+
+            rem_flowers_list = flatten_counter(remaining_flowers)
+            can_find = False
+            for _ in range(self.guess_other_times):
                 random.shuffle(rem_flowers_list)
 
+                chosen_flower_counts = defaultdict(int)
+                for flower in rem_flowers_list:
+                    if len(colors_count) == 0 and len(types_count) == 0 and len(sizes_count) == 0:
+                        can_find = True
+                        break
+
+                    if len(colors_count) == 0 or len(types_count) == 0 or len(sizes_count) == 0:
+                        break
+
+                    if types_count[flower.type] > 0 and colors_count[flower.color] > 0 and sizes_count[flower.size] > 0:
+                        chosen_flower_counts[flower] += 1
+                        types_count[flower.type] -= 1
+                        colors_count[flower.color] -= 1
+                        sizes_count[flower.size] -= 1
+
+                        if types_count[flower.type] == 0:
+                            del types_count[flower.type]
+                        if colors_count[flower.color] == 0:
+                            del colors_count[flower.color]
+                        if sizes_count[flower.size] == 0:
+                            del sizes_count[flower.size]
+
+                if can_find:
+                    break
+
+            # if len(colors_count) != 0 or len(types_count) != 0 or len(sizes_count) != 0:
+            #     for flower in rem_flowers_list:
+            #         if len(colors_count) == 0 and len(types_count) == 0 and len(sizes_count) == 0:
+            #             break
+            #
+            #         if flower in chosen_flower_counts and chosen_flower_counts[flower] >= remaining_flowers[flower]:
+            #             continue
+            #
+            #         if flower.color in colors_count and colors_count[flower.color] > 0:
+            #             chosen_flower_counts[flower] += 1
+            #             colors_count[flower.color] -= 1
+            #             if types_count[flower.type] > 0:
+            #                 types_count[flower.type] -= 1
+            #             if sizes_count[flower.size] > 0:
+            #                 sizes_count[flower.size] -= 1
+            #
+            #             if types_count[flower.type] == 0:
+            #                 del types_count[flower.type]
+            #             if colors_count[flower.color] == 0:
+            #                 del colors_count[flower.color]
+            #             if sizes_count[flower.size] == 0:
+            #                 del sizes_count[flower.size]
+            #
+            #         elif flower.type in types_count and types_count[flower.type] > 0:
+            #             chosen_flower_counts[flower] += 1
+            #             types_count[flower.type] -= 1
+            #             if colors_count[flower.color] > 0:
+            #                 colors_count[flower.color] -= 1
+            #             if sizes_count[flower.size] > 0:
+            #                 sizes_count[flower.size] -= 1
+            #
+            #             if types_count[flower.type] == 0:
+            #                 del types_count[flower.type]
+            #             if colors_count[flower.color] == 0:
+            #                 del colors_count[flower.color]
+            #             if sizes_count[flower.size] == 0:
+            #                 del sizes_count[flower.size]
+            #
+            #         elif flower.size in sizes_count and sizes_count[flower.size] > 0:
+            #             chosen_flower_counts[flower] += 1
+            #             sizes_count[flower.size] -= 1
+            #             if colors_count[flower.color] > 0:
+            #                 colors_count[flower.color] -= 1
+            #             if types_count[flower.type] > 0:
+            #                 types_count[flower.type] -= 1
+            #
+            #             if types_count[flower.type] == 0:
+            #                 del types_count[flower.type]
+            #             if colors_count[flower.color] == 0:
+            #                 del colors_count[flower.color]
+            #             if sizes_count[flower.size] == 0:
+            #                 del sizes_count[flower.size]
+
+            if not can_find or sum(chosen_flower_counts.values()) > MAX_BOUQUET_SIZE:
                 chosen_flower_counts = dict()
-                for f in rem_flowers_list:
-                    if colors_count[f.color.value] > 0:
-                        if f not in chosen_flower_counts:
-                            chosen_flower_counts[f] = 0
-                        chosen_flower_counts[f] += 1
-                        colors_count[f.color.value] -= 1
 
-                # couldn't color copy
-                if np.any(colors_count):
-                    chosen_flower_counts = dict()
+        return chosen_flower_counts
 
-                for f in chosen_flower_counts:
-                    remaining_flowers[f] -= 1
+    # for each player, randomly guess what they want if we haven't got score 1 for their group
+    def _prepare_bouquet(self, remaining_flowers, recipient_id, isRandom):
+        if not isRandom and self.has_our_strat[recipient_id] == 0 and self.score_1_bouquet[recipient_id] is not None:
+            chosen_flower_counts = self.construct_our_strategy_flowers(recipient_id, remaining_flowers)
+            for f in chosen_flower_counts:
+                remaining_flowers[f] -= 1
 
-            self.bouquet_history[recipient_id].append(chosen_flower_counts)
+        elif not isRandom and self.days >= self.guess_other_threhold and self.has_our_strat[recipient_id] == -1 and \
+                self.test_other_hypothesis[recipient_id] == 0 and self.score_1_bouquet[recipient_id] is not None:
+            chosen_flower_counts = self.construct_other_strategy_flowers(recipient_id, remaining_flowers)
+            if not chosen_flower_counts:
+                print("aaaa")
+            else:
+                print("find")
+            for f in chosen_flower_counts:
+                remaining_flowers[f] -= 1
 
-        # elif self.days >= self.guess_other_threhold and self.has_our_strat[recipient_id] == -1 and \
-        #     self.test_other_hypothesis[recipient_id] == 0 and self.score_1_bouquet[recipient_id] is not None:
-        #     flowers_sent = self.score_1_bouquet[recipient_id]
-        #
-        #     types_count = [0] * 4
-        #     colors_count = [0] * 6
-        #     sizes_count = [0] * 3
-        #
-        #     for flower, count in flowers_sent.items():
-        #         types_count[flower.type.value] += count
-        #         colors_count[flower.color.value] += count
-        #         sizes_count[flower.color.value] += count
-
-
-
-
-        elif int(self.recipients_largest_score_[recipient_id]) == 1:
+        elif not isRandom and int(self.recipients_largest_score_[recipient_id]) == 1:
             chosen_flower_counts = dict()
         else:
             # randomly choosing the flowers
@@ -201,11 +326,27 @@ class Suitor(BaseSuitor):
             else:
                 chosen_flower_counts = dict()
 
-            # put the guess into the bouquet_history, the latest one is always the recent turn
-            self.bouquet_history[recipient_id].append(chosen_flower_counts)
+        # put the guess into the bouquet_history, the latest one is always the recent turn
+        self.bouquet_history[recipient_id].append(chosen_flower_counts)
 
         chosen_bouquet = Bouquet(chosen_flower_counts)
         return self.suitor_id, recipient_id, chosen_bouquet
+
+    def match_exact_flowers(self, remaining_flowers, recipient_id):
+        score = 1
+        flowers = self.bouquet_history_score[recipient_id][score]
+        exist_flower = True
+        current_remaining_flowers = remaining_flowers.copy()
+        for one_flower, count in flowers.items():
+            if one_flower not in current_remaining_flowers or current_remaining_flowers[one_flower] < count:
+                exist_flower = False
+                break
+            current_remaining_flowers[one_flower] -= count
+
+        if exist_flower:
+            return flowers
+        else:
+            return dict()
 
     # in the final round, choose the flowers given to each recipient
     # can use self.score_one_recipients, sort the dict by values,
@@ -216,38 +357,38 @@ class Suitor(BaseSuitor):
         self.recipients_all_score.sort(key=lambda x: -x[1])
         recipient_chosen_flowers = dict()
 
-        for i in range(self.num_suitors):
-            # suitor isn't us and they use our strat and we have found a score 1 bouquet
-            if i != self.suitor_id and self.has_our_strat[i] == 1:
-
-                recipient_visited.add(i)
-
-                flowers_sent = self.score_1_bouquet[i]
-
-                colors_count = [0] * 6
-                for f, j in flowers_sent.items():
-                    colors_count[f.color.value] += j
-
-                rem_flowers_list = flatten_counter(remaining_flowers)
-                # essentially choose a random bouquet of same color count
-                random.shuffle(rem_flowers_list)
-
-                chosen_flower_counts = dict()
-                for f in rem_flowers_list:
-                    if colors_count[f.color.value] > 0:
-                        if f not in chosen_flower_counts:
-                            chosen_flower_counts[f] = 0
-                        chosen_flower_counts[f] += 1
-                        colors_count[f.color.value] -= 1
-
-                # couldn't color copy
-                if np.any(colors_count):
-                    chosen_flower_counts = dict()
-
+        for recipient_id in recipient_ids:
+            # suitor isn't us and they use our strategy and we have found a score 1 bouquet
+            if recipient_id != self.suitor_id and self.has_our_strat[recipient_id] == 1:
+                chosen_flower_counts = self.construct_our_strategy_flowers(recipient_id, remaining_flowers)
                 for f in chosen_flower_counts:
                     remaining_flowers[f] -= 1
 
-                recipient_chosen_flowers[i] = self.suitor_id, i, Bouquet(chosen_flower_counts)
+                recipient_visited.add(recipient_id)
+                # if cannot find flowers, try to match the exact flowers
+                if not chosen_flower_counts:
+                    chosen_flower_counts = self.match_exact_flowers(remaining_flowers, recipient_id)
+
+                recipient_chosen_flowers[recipient_id] = self.suitor_id, recipient_id, Bouquet(chosen_flower_counts)
+                for f in chosen_flower_counts:
+                    remaining_flowers[f] -= 1
+
+        for recipient_id in recipient_ids:
+            # suitor isn't us and they use other hypothesis and we have found a score 1 bouquet
+            if recipient_id != self.suitor_id and self.days >= self.guess_other_threhold and \
+                    self.test_other_hypothesis[recipient_id] == 1:
+                chosen_flower_counts = self.construct_other_strategy_flowers(recipient_id, remaining_flowers)
+                for f in chosen_flower_counts:
+                    remaining_flowers[f] -= 1
+
+                if not chosen_flower_counts:
+                    chosen_flower_counts = self.match_exact_flowers(remaining_flowers, recipient_id)
+
+                if chosen_flower_counts:
+                    recipient_visited.add(recipient_id)
+                    recipient_chosen_flowers[recipient_id] = self.suitor_id, recipient_id, Bouquet(chosen_flower_counts)
+                    for f in chosen_flower_counts:
+                        remaining_flowers[f] -= 1
 
         for recipient_id, score in self.recipients_all_score:
             if len(recipient_visited) == self.num_suitors - 1:
@@ -257,29 +398,40 @@ class Suitor(BaseSuitor):
                 continue
 
             # if the score is too low, let's stop using the flowers that we remember
-            if score < 0.5:
+            if int(score) == 0:
                 break
 
             flowers = self.bouquet_history_score[recipient_id][score]
-            exist_flower = True
-            current_remaining_flowers = remaining_flowers.copy()
-            for one_flower, count in flowers.items():
-                if one_flower not in current_remaining_flowers or current_remaining_flowers[one_flower] < count:
-                    exist_flower = False
-                    break
-                current_remaining_flowers[one_flower] -= count
+            if self.test_other_hypothesis[recipient_id] == 1:
+                chosen_flower_counts = self.construct_other_strategy_flowers(recipient_id, remaining_flowers)
+                for f in chosen_flower_counts:
+                    remaining_flowers[f] -= 1
 
-            if exist_flower:
-                remaining_flowers = current_remaining_flowers
-                recipient_visited.add(recipient_id)
-                recipient_chosen_flowers[recipient_id] = self.suitor_id, recipient_id, Bouquet(flowers)
+                if not chosen_flower_counts:
+                    chosen_flower_counts = self.match_exact_flowers(remaining_flowers, recipient_id)
 
-        # if we cannot find flowers to all players, we will randomly assign the flower
+                if chosen_flower_counts:
+                    recipient_visited.add(recipient_id)
+                    recipient_chosen_flowers[recipient_id] = self.suitor_id, recipient_id, Bouquet(chosen_flower_counts)
+                    for f in chosen_flower_counts:
+                        remaining_flowers[f] -= 1
+            else:
+                chosen_flower_counts = self.match_exact_flowers(remaining_flowers, recipient_id)
+                if chosen_flower_counts:
+                    recipient_visited.add(recipient_id)
+                    recipient_chosen_flowers[recipient_id] = self.suitor_id, recipient_id, Bouquet(chosen_flower_counts)
+                    for f in chosen_flower_counts:
+                        remaining_flowers[f] -= 1
+
+        # if we cannot find exact flowers to all players, we will randomly assign the flower
         if len(recipient_visited) != self.num_suitors - 1:
+            print(self.suitor_id, "left random:", self.num_suitors - 1 - len(recipient_visited))
+
             for recipient_id in recipient_ids:
                 if recipient_id not in recipient_visited:
                     recipient_visited.add(recipient_id)
-                    recipient_chosen_flowers[recipient_id] = self._prepare_bouquet(remaining_flowers, recipient_id)
+                    recipient_chosen_flowers[recipient_id] = self._prepare_bouquet(remaining_flowers, recipient_id,
+                                                                                   True)
 
         flower_list = []
         for recipient_id in recipient_ids:
@@ -307,25 +459,24 @@ class Suitor(BaseSuitor):
             return self.prepare_for_marry_day(remaining_flowers, recipient_ids)
 
         result = []
-        suitors = set()
+        suitors_visited = set()
         for i in range(self.num_suitors):
             # suitor isn't us and unknown is they use our strat and we have found a score 1 bouquet
             if i != self.suitor_id and self.has_our_strat[i] == 0 and self.score_1_bouquet[i] is not None:
-                result.append(self._prepare_bouquet(remaining_flowers, i))
-                suitors.add(i)
+                result.append(self._prepare_bouquet(remaining_flowers, i, False))
+                suitors_visited.add(i)
 
         if self.days >= self.guess_other_threhold:
             for i in range(self.num_suitors):
                 # suitor isn't us and unknown is they use our strat and we have found a score 1 bouquet
                 if i != self.suitor_id and self.has_our_strat[i] == -1 and self.score_1_bouquet[i] is not None \
-                        and i not in suitors and self.test_other_hypothesis[i] == 0:
-                    result.append(self._prepare_bouquet(remaining_flowers, i))
-                    suitors.add(i)
+                        and i not in suitors_visited and self.test_other_hypothesis[i] == 0:
+                    result.append(self._prepare_bouquet(remaining_flowers, i, False))
+                    suitors_visited.add(i)
 
         for i in range(self.num_suitors):
-            if i != self.suitor_id and i not in suitors:
-                result.append(self._prepare_bouquet(remaining_flowers, i))
-        # result = list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
+            if i != self.suitor_id and i not in suitors_visited:
+                result.append(self._prepare_bouquet(remaining_flowers, i, False))
         return result
 
     def zero_score_bouquet(self):
@@ -404,6 +555,18 @@ class Suitor(BaseSuitor):
 
         return color_map1 == color_map2
 
+    def get_three_features(self, flowers):
+        types_count = defaultdict(int)
+        colors_count = defaultdict(int)
+        sizes_count = defaultdict(int)
+
+        for flower, count in flowers.items():
+            types_count[flower.type] += count
+            colors_count[flower.color] += count
+            sizes_count[flower.size] += count
+
+        return colors_count, types_count, sizes_count
+
     # put feedback in self.bouquet_history_score
     def receive_feedback(self, feedback):
         """
@@ -422,6 +585,9 @@ class Suitor(BaseSuitor):
                 self.recipients_all_score.append((recipient_id, score))
                 continue
 
+            if int(score) == 1:
+                score = int(score)
+
             if int(score) != 0 and score in self.bouquet_history_score[recipient_id]:
                 # if the same score exists, we always want to choose the fewer flowers combinations
                 if sum(self.bouquet_history_score[recipient_id][score].values()) > sum(flower_sent.values()):
@@ -431,9 +597,12 @@ class Suitor(BaseSuitor):
                 self.recipients_largest_score_[recipient_id] = max(self.recipients_largest_score_[recipient_id], score)
                 self.recipients_all_score.append((recipient_id, score))
 
+            if self.current_day == self.days:
+                continue
+
             # unknown if they have our strat and I sent a non-empty bouquet
             if self.has_our_strat[recipient_id] == 0:
-                                             
+
                 # no bouquet saved yet
                 if self.score_1_bouquet[recipient_id] is None:
                     if int(score) == 1:
@@ -446,14 +615,20 @@ class Suitor(BaseSuitor):
 
                         if self.our_strat_count[recipient_id] == 0:
                             self.has_our_strat[recipient_id] = 1
+                            print(self.suitor_id, recipient_id, "has us")
                     else:
                         self.has_our_strat[recipient_id] = -1
+                        print(self.suitor_id, recipient_id, "hasn't us")
 
             # test if it is other hypothesis
-            if self.has_our_strat[recipient_id] == -1:
+            if self.days >= self.guess_other_threhold and self.has_our_strat[recipient_id] == -1 and \
+                    self.test_other_hypothesis[recipient_id] == 0:
                 if self.score_1_bouquet[recipient_id] is None:
                     if int(score) == 1:
                         self.score_1_bouquet[recipient_id] = dict(flower_sent)
+                        self.test_other_hypothesis_days[recipient_id] -= 1
+                    elif 1 in self.bouquet_history_score[recipient_id]:
+                        self.score_1_bouquet[recipient_id] = dict(self.bouquet_history_score[recipient_id][1])
                         self.test_other_hypothesis_days[recipient_id] -= 1
                 else:
                     if int(score) == 1:
@@ -461,9 +636,11 @@ class Suitor(BaseSuitor):
 
                         if self.test_other_hypothesis_days[recipient_id] == 0:
                             self.test_other_hypothesis[recipient_id] = 1
+                            print(self.suitor_id, recipient_id, "has other")
                     else:
-                        self.test_other_hypothesis[recipient_id] = -1
-
+                        if self.test_other_hypothesis_days[recipient_id] != self.guess_other_times:
+                            self.test_other_hypothesis[recipient_id] = -1
+                            print(self.suitor_id, recipient_id, "hasn't other")
 
 
 ''' usage of BouquetSimulator:

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import random
 import pdb
+import time
 from sklearn.linear_model import LinearRegression
 
 from constants import MAX_BOUQUET_SIZE
@@ -88,6 +89,7 @@ class Suitor(BaseSuitor):
     def _extract_the_dimensions(self, bouquets):
         
         list_of_dicts = []
+
         for bouquet in bouquets:
             dict_of_features = {}
             for elem in self.all_possible_flower_keys:
@@ -96,6 +98,7 @@ class Suitor(BaseSuitor):
                 for comp in components:
                     if comp not in dict_of_features:
                         dict_of_features[comp] = 0
+
             for i,boolean in enumerate(bouquet):
                 if boolean==1:
                     flowertype = self.all_possible_flower_keys[i]
@@ -117,7 +120,7 @@ class Suitor(BaseSuitor):
                         dict_of_features[ftype] = dict_of_features[ftype] + 1
                     else:
                         dict_of_features[ftype] = 0
-                list_of_dicts.append(list(dict_of_features.values()))
+            list_of_dicts.append(list(dict_of_features.values()))
         
         return list_of_dicts
 
@@ -178,11 +181,15 @@ class Suitor(BaseSuitor):
                 lin_reg.fit(hist_nparr, pd.Series(self.score_hist[i]))
 
                 pred_score = lin_reg.predict(all_possible_bouquets_nparr)
+                pdb.set_trace()
 
                 # getting first instance of best score and using that bouquet
                 best_flowers = all_possible_bouquets_arr[np.where(pred_score == max(pred_score))[0][0]]
                 #pdb.set_trace()
+                time1 = time.time()
                 converted_best_flowers = self._extract_the_dimensions([best_flowers])[0]
+                time2 = time.time()
+                print(time2-time1)
 
                 # Creating Bouquet object to return
                 if sum(best_flowers) > 0:
@@ -191,7 +198,6 @@ class Suitor(BaseSuitor):
                         if best_flowers[j] > 0:
                             f_obj = rem_flower_key_pairs[self.all_possible_flower_keys[j]]
                             predicted_best[f_obj] = best_flowers[j]
-
                     best_bouquet = Bouquet(predicted_best)
 
                     for k, v in best_bouquet.arrangement.items():
@@ -217,7 +223,6 @@ class Suitor(BaseSuitor):
                         b_dict[str(k)] = v
                     arrangement = list({**self.all_possible_flowers, **b_dict}.values())
                     
-
                     converted_arrangement = self._extract_the_dimensions([arrangement])[0]
 
                     if self.curr_day == 0 or converted_arrangement not in self.arrangement_hist[i]:
@@ -226,7 +231,6 @@ class Suitor(BaseSuitor):
                 for k, v in chosen_bouquet.arrangement.items():
                     remaining_flowers[k] -= v
                     assert remaining_flowers[k] >= 0
-
                 bouquets.append((suitor_id, recipient_id, chosen_bouquet))
 
                 if self.curr_day == 0:

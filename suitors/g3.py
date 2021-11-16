@@ -185,6 +185,13 @@ def arrange_random(flower_counts: Dict[Flower, int]) -> Tuple[Dict[Flower, int],
 
 
 def priority(recipient_ids, bouquet_feedback, final_round=False):
+    """
+    :param recipient_ids: list of recipient ids currently in game
+    :param bouquet_feedback: dict of feedback o previously given bouquets
+    :param final_round: determines whether solved players (where we scored 1 on) are a priority or not
+
+    :return: list of recipient ids in order of priority
+    """
     ordering = [(r_id,
                  bouquet_feedback[r_id]["size"][-1]["score"],
                  bouquet_feedback[r_id]["size"][-1]["rank"]) for r_id in recipient_ids]

@@ -192,9 +192,8 @@ def priority(recipient_ids, bouquet_feedback):
     ordering = sorted(ordering, key=lambda y: (y[2], -y[1]))
     # second pass: move players we score 0 on to back
     for i in range(len(ordering)):
-        if ordering[i][1] == 0:
-            ordering.append(ordering.pop(i))
-
+        if ordering[-i][1] == 0:
+            ordering.append(ordering.pop(-i))
     new_r_ids = [r_id for r_id, _, _ in ordering]
     return new_r_ids
 

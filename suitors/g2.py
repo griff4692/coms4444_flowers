@@ -59,7 +59,7 @@ class Suitor(BaseSuitor):
         self.exploration_alpha = 0.3
         self.exploration_alpha_decay = self.exploration_alpha / days
         self.num_suitors = num_suitors - 1
-
+        self.best_records = defaultdict(list)
         # self.num_flowers_in_bouquet = self.get_random_num_flowers(seed=2)
         self.num_flowers_in_bouquet = 9
         self.our_favorite_bouquet = self.get_random_bouquet(num_flowers = self.num_flowers_in_bouquet)
@@ -321,6 +321,7 @@ class Suitor(BaseSuitor):
 
         if self.turn > 1:
             self.rank_groups()
+            # print(self.other_suitors)
 
         for o_id in self.other_suitors:
             r = random.uniform(0,1)
@@ -480,10 +481,33 @@ class Suitor(BaseSuitor):
 
     def rank_groups(self):
         g_rank_s = defaultdict(int)
+        # print("rgiven:", self.bouquets_given)
 
         for o_id in self.other_suitors:
             rank = self.bouquets_given[o_id][-1][1]
             score = self.bouquets_given[o_id][-1][2]
-            g_rank_s[o_id] = score/rank
+
+            if o_id in self.best_records:
+                if self.best_records[o_id][0]>rank:
+                    self.best_records[o_id][0] = rank
+                    self.best_records[o_id][1] = score
+                elif self.best_records[o_id][0]==rank and self.best_records[o_id][1]>score:
+                    self.best_records[o_id][1] = score
+            else:
+                self.best_records[o_id] = [rank, score]
+
+            rank = self.best_records[o_id][0]
+            score = self.best_records[o_id][1]
+
+            # print(o_id, rank, score)
+            g_rank_s[o_id] = -2*rank
+            g_rank_s[o_id] += score
+
+            # if self.turn != self.days:
+            #     g_rank_s[o_id] -= score
+            # else:
+            #     g_rank_s[o_id] += score
+
+            # g_rank_s[o_id] = score/rank
 
         self.other_suitors = [k for k, v in sorted(g_rank_s.items(), key=lambda x: x[1], reverse=True)]

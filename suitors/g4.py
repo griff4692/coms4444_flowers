@@ -9,6 +9,7 @@ from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
 from utils import flatten_counter
 from constants import MAX_BOUQUET_SIZE
+from copy import deepcopy
 
 # color, type, size ratio in experiments
 CTS_RATIO = [6, 4, 3]
@@ -51,6 +52,7 @@ class Suitor(BaseSuitor):
             if i != suitor_id:
                 self.experiments[i] = defaultdict(list)
         self.suitor_id = suitor_id  # Added this line
+        self.num_suitors = num_suitors
 
     @staticmethod
     def _get_combinations(list1, list2):
@@ -156,6 +158,145 @@ class Suitor(BaseSuitor):
                 return False
         return True
 
+    def _testing_round(self, flower_counts):
+        # Get the order of player IDs in best order
+        ranks = []
+        print(self.experiments)
+        for id in self.recipient_ids:
+            best_rank = self.num_suitors
+            categories = self.experiments[id].values()
+            for r in categories:
+                for res in r:
+                    score, rank = res[1], res[2] # rank
+                    if score > 0:
+                        best_rank = min(best_rank, rank)
+            ranks.append((id, best_rank))
+        
+        ranks.sort(key=lambda x:x[1]) # sort by suitor ID in best order
+        num_flowers_remaining = 0
+        idx = 0
+        results = []
+        for key, value in flower_counts.items():
+            num_flowers_remaining += value
+        flower_counts = deepcopy(flower_counts)
+        while num_flowers_remaining > 0 and idx < len(ranks):
+            # Get this player's ideal bouqet size and statistics on flower choices
+            player = ranks[idx][0]
+            bouquet_size, color_rank, size_rank, type_rank = self.player_stats(player)
+            idx += 1
+            d = {}
+            if bouquet_size > num_flowers_remaining:
+                for key, value in flower_counts:
+                    if value > 0:
+                        d[key] = value
+            else:
+                # This scenario calculate which flowers are the best
+                li = self.calculate_flower_scores(flower_counts, color_rank, size_rank, type_rank)
+                for i in range(bouquet_size):
+                    f = li[i][0]
+                    d[f] = d.get(f, 0) + 1
+                    flower_counts[f] -= 1
+            
+            # :return: list of tuples of (self.suitor_id, recipient_id, chosen_bouquet)
+            num_flowers_remaining -= bouquet_size
+            results.append((self.suitor_id, player, Bouquet(d)))
+        
+        # Now go through other players we have not seen yet
+        for i in range(idx, len(ranks)):
+            results.append((self.suitor_id, ranks[i][0], Bouquet({})))
+        
+        print('AWOOOOOOOOOOOOOOOOO')
+        print(results)
+        return results
+
+    def calculate_flower_scores(self, flower_counts, color_rank, size_rank, type_rank):
+        li = []
+        for key, value in flower_counts.items():
+            if value > 0:
+                score = size_rank[key.size] + color_rank[key.color] + type_rank[key.type]
+                for i in range(value):
+                    li.append((key, score))
+        li.sort(key=lambda x: x[1], reverse=True)
+        return li
+    
+    def player_stats(self, player):
+        results = self.experiments[player]
+        counts = defaultdict(list)
+        preferences_c = defaultdict(list)
+        preferences_s = defaultdict(list)
+        preferences_t = defaultdict(list)
+        categories = ['color', 'type', 'size']
+        # Loop through the colors
+        for experiment in results['color']:
+            bouquet, score = experiment[0], experiment[1]
+            counts[len(bouquet)].append(score)
+            # Colors that were in this bouquet -- no proportion being used just yet
+            for key in bouquet.colors:
+                preferences_c[key].append(score)
+
+        for experiment in results['type']:
+            bouquet, score = experiment[0], experiment[1]
+            counts[len(bouquet)].append(score)
+            # Colors that were in this bouquet -- no proportion being used just yet
+            for key in bouquet.types:
+                preferences_t[key].append(score)
+
+        for experiment in results['size']:
+            bouquet, score = experiment[0], experiment[1]
+            counts[len(bouquet)].append(score)
+            # Colors that were in this bouquet -- no proportion being used just yet
+            for key in bouquet.sizes:
+                preferences_s[key].append(score)
+
+        # Calculate the best bouquet size
+        bouquet_size = -1
+        bouquet_size_score = -1
+        for key, value in counts.items():
+            s = sum(value)
+            res = s / len(value)
+            if res > bouquet_size_score:
+                bouquet_size_score = res
+                bouquet_size = key
+
+
+        # Calculate proportion scores
+        proportion_color = defaultdict(int)
+        total = 0
+        for key, value in preferences_c.items():
+            s = sum(value)
+            total += s
+            proportion_color[key] = s
+        
+        if total > 0:
+            for key in proportion_color:
+                proportion_color[key] = proportion_color[key] / total
+
+        
+        proportion_size = defaultdict(int)
+        total = 0
+        for key, value in preferences_s.items():
+            s = sum(value)
+            total += s
+            proportion_size[key] = s
+        
+        if total > 0:
+            for key in proportion_size:
+                proportion_size[key] = proportion_size[key] / total
+
+        
+        proportion_type = defaultdict(int)
+        total = 0
+        for key, value in preferences_t.items():
+            s = sum(value)
+            total += s
+            proportion_type[key] = s
+        
+        if total > 0:
+            for key in proportion_size:
+                proportion_type[key] = proportion_type[key] / total
+
+        return bouquet_size, proportion_color, proportion_size, proportion_type
+    
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
         :param flower_counts: flowers and associated counts for for available flowers
@@ -175,6 +316,10 @@ class Suitor(BaseSuitor):
 
         if len(self.feedback) > 0:  # store past bouquets and scores
             self.update_results()
+
+        # Testing round -- comment out this code to run testing round
+        # if self.remaining_turns == 1:
+        #     return self._testing_round(flower_counts)
 
         if self.remaining_turns == 0:
 
@@ -430,7 +575,7 @@ class Suitor(BaseSuitor):
                                           self.last_bouquet[list(self.recipient_ids).index(i)][3]
 
                 # player[exp_type].append([bouquet_given, results[i][0], results[i][1]]) # TODO add rank to self.experiments
-                player[exp_type].append([bouquet_given, results[i][1]])
+                player[exp_type].append([bouquet_given, results[i][1], results[i][0]])
 
     @staticmethod
     def _tabularize_flowers(flower_counts):

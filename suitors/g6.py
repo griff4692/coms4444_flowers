@@ -11,12 +11,13 @@ import time
 from sklearn.linear_model import LinearRegression
 
 from constants import MAX_BOUQUET_SIZE
-from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, get_all_possible_flowers
+from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, get_all_possible_flowers,sample_n_random_flowers
 from utils import flatten_counter
 from suitors.base import BaseSuitor
 
 # import time
 # import pdb
+
 
 
 class Suitor(BaseSuitor):
@@ -35,11 +36,30 @@ class Suitor(BaseSuitor):
         self.NUM_ALL_POSSIBLE_FLOWERS = len(self.all_possible_flower_keys)
         
         self.all_possible_flowers = dict(zip(self.all_possible_flower_keys, [0] * self.NUM_ALL_POSSIBLE_FLOWERS))
-        self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
+
 
         self.priority = [i for i in list(range(num_suitors)) if i != suitor_id]
         super().__init__(days, num_suitors, suitor_id, name='g6')
+        self.wanted_bouquet = sample_n_random_flowers(get_all_possible_flowers(),MAX_BOUQUET_SIZE)
+        self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
+        self.wanted_colors,self.wanted_sizes,self.wanted_types = self._parse_bouquet(self.wanted_bouquet)
+        self.threshold = 0.9
 
+    def _parse_bouquet(self,boquet):
+        colors = np.zeros(6)
+        sizes = np.zeros(3)
+        types = np.zeros(4)
+        for flower,number in self.wanted_bouquet.items():
+            colors[flower.color.value]+=number
+            sizes[flower.size.value]+=number
+            types[flower.type.value]+=number
+        print(colors,sizes,types)
+        return colors,sizes,types
+
+    def cosine_similarity(self,a,b):
+        if np.linalg.norm(a)==0 or np.linalg.norm(b) == 0:
+            return 0
+        return np.dot(a,b)/(np.linalg.norm(a)*np.linalg.norm(b))
 
     def _prepare_rand_bouquet(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
@@ -253,37 +273,7 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
-        f1 = Flower(
-            size=FlowerSizes.Large,
-            color=FlowerColors.Blue,
-            type=FlowerTypes.Rose
-        )
-        f2 = Flower(
-            size=FlowerSizes.Small,
-            color=FlowerColors.White,
-            type=FlowerTypes.Chrysanthemum
-        )
-        f3 = Flower(
-            size=FlowerSizes.Medium,
-            color=FlowerColors.Yellow,
-            type=FlowerTypes.Tulip
-        )
-        f4 = Flower(
-            size=FlowerSizes.Medium,
-            color=FlowerColors.Red,
-            type=FlowerTypes.Begonia
-        )
-        f5 = Flower(
-            size=FlowerSizes.Medium,
-            color=FlowerColors.Purple,
-            type=FlowerTypes.Begonia
-        )
-        f6 = Flower(
-            size=FlowerSizes.Medium,
-            color=FlowerColors.Orange,
-            type=FlowerTypes.Begonia
-        )
-        return Bouquet({f1:1,f2:1,f3:1,f4:1,f5:1,f6:1})
+        return self.wanted_bouquet
 
 
     def score_types(self, types: Dict[FlowerTypes, int]):
@@ -291,36 +281,42 @@ class Suitor(BaseSuitor):
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        # if len(types) == 0:
-        #     return 0.0
-        #
-        # avg_types = float(np.mean([x.value for x in flatten_counter(types)]))
-        #return avg_types / (3 * (len(FlowerTypes) - 1))
-        return self.typeWeight*len(types) / len(FlowerTypes)
+        curr_types = np.zeros(len(FlowerTypes))
+        for key,value in types.items():
+            curr_types[key.value]+=value
+        cosine_similarity = self.cosine_similarity(curr_types,self.wanted_types)
+        if cosine_similarity>self.threshold:
+            return self.typeWeight*cosine_similarity
+        else:
+            return 0
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        # if len(colors) == 0:
-        #     return 0.0
-        #
-        # avg_colors = float(np.mean([x.value for x in flatten_counter(colors)]))
-        #return avg_colors / (3 * (len(FlowerColors) - 1))
-        return self.colorWeight*len(colors) / len(FlowerColors)
+        curr_colors = np.zeros(len(FlowerColors))
+        for key,value in colors.items():
+            curr_colors[key.value]+=value
+        cosine_similarity = self.cosine_similarity(curr_colors,self.wanted_colors)
+        if cosine_similarity>self.threshold:
+            return self.colorWeight*cosine_similarity
+        else:
+            return 0
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
-        # if len(sizes) == 0:
-        #     return 0
-        #
-        # avg_sizes = float(np.mean([x.value for x in flatten_counter(sizes)]))
-        #return avg_sizes / (3 * (len(FlowerSizes) - 1))
-        return self.sizeWeight*len(sizes) / len(FlowerSizes)
+        curr_sizes = np.zeros(len(FlowerSizes))
+        for key,value in sizes.items():
+            curr_sizes[key.value]+=value
+        cosine_similarity = self.cosine_similarity(curr_sizes,self.wanted_sizes)
+        if cosine_similarity>self.threshold:
+            return self.sizeWeight*cosine_similarity
+        else:
+            return 0
 
     def receive_feedback(self, feedback):
         """

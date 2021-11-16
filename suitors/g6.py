@@ -106,6 +106,7 @@ class Suitor(BaseSuitor):
         return bouquets
 
     def _extract_the_dimensions(self, bouquets):
+        
         list_of_dicts = []
         for bouquet in bouquets:
             dict_of_features = {}
@@ -115,7 +116,6 @@ class Suitor(BaseSuitor):
                 for comp in components:
                     if comp not in dict_of_features:
                         dict_of_features[comp] = 0
-
             for i,boolean in enumerate(bouquet):
                 if boolean==1:
                     flowertype = self.all_possible_flower_keys[i]
@@ -137,8 +137,8 @@ class Suitor(BaseSuitor):
                         dict_of_features[ftype] = dict_of_features[ftype] + 1
                     else:
                         dict_of_features[ftype] = 0
-                list_of_dicts.append(dict_of_features)
-
+                list_of_dicts.append(list(dict_of_features.values()))
+        
         return list_of_dicts
 
 
@@ -188,9 +188,11 @@ class Suitor(BaseSuitor):
                 # getting all valid flower combinations for each person -- so know best bouquet is valid
                 all_possible_bouquets_arr = self._get_all_possible_bouquets_arr(remaining_flowers)
                 #MIA SAYS UNCOMMENT THIS LINE
-                self._extract_the_dimensions(all_possible_bouquets_arr)
-                all_possible_bouquets_nparr = np.array(all_possible_bouquets_arr)
+                list_of_lists = self._extract_the_dimensions(all_possible_bouquets_arr)
+                all_possible_bouquets_nparr = np.array(list_of_lists)
+
                 hist_nparr = np.asarray(self.arrangement_hist[i], dtype=int)
+                
 
                 lin_reg = LinearRegression()
                 lin_reg.fit(hist_nparr, pd.Series(self.score_hist[i]))
@@ -199,6 +201,8 @@ class Suitor(BaseSuitor):
 
                 # getting first instance of best score and using that bouquet
                 best_flowers = all_possible_bouquets_arr[np.where(pred_score == max(pred_score))[0][0]]
+                #pdb.set_trace()
+                converted_best_flowers = self._extract_the_dimensions([best_flowers])[0]
 
                 # Creating Bouquet object to return
                 if sum(best_flowers) > 0:
@@ -218,7 +222,8 @@ class Suitor(BaseSuitor):
 
                 # bouquets.append((self.suitor_id, recipient_ids[i], best_bouquet))
                 bouquets.append((self.suitor_id, self.priority[i], best_bouquet))
-                self.arrangement_hist[i].append(best_flowers)
+                
+                self.arrangement_hist[i].append(converted_best_flowers)
                 self.bouquet_hist[i].append(best_bouquet)
 
             else: # give random bouquet to get more data for Linear Regression
@@ -231,8 +236,11 @@ class Suitor(BaseSuitor):
                     for k, v in chosen_bouquet.arrangement.items():
                         b_dict[str(k)] = v
                     arrangement = list({**self.all_possible_flowers, **b_dict}.values())
+                    
 
-                    if self.curr_day == 0 or arrangement not in self.arrangement_hist[i]:
+                    converted_arrangement = self._extract_the_dimensions([arrangement])[0]
+
+                    if self.curr_day == 0 or converted_arrangement not in self.arrangement_hist[i]:
                         break
 
                 for k, v in chosen_bouquet.arrangement.items():
@@ -242,10 +250,10 @@ class Suitor(BaseSuitor):
                 bouquets.append((suitor_id, recipient_id, chosen_bouquet))
 
                 if self.curr_day == 0:
-                    self.arrangement_hist.append([arrangement])
+                    self.arrangement_hist.append([converted_arrangement])
                     self.bouquet_hist.append([chosen_bouquet])
                 else:
-                    self.arrangement_hist[i].append(arrangement)
+                    self.arrangement_hist[i].append(converted_arrangement)
                     self.bouquet_hist[i].append(chosen_bouquet)
 
         self.curr_day += 1

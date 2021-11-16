@@ -18,7 +18,7 @@ from time_utils import prepare_empty_bouquets
 
 
 class FlowerMarriageGame:
-    def __init__(self, args):
+    def __init__(self, args, suitor_names=None):
         self.restrict_time = args.restrict_time
         self.remove_round_logging = args.remove_round_logging
         logging.basicConfig(
@@ -38,7 +38,8 @@ class FlowerMarriageGame:
         else:
             self.p = args.p
             self.d = args.d
-            self.suitor_names = [args.group] * self.p
+            self.suitor_names = [args.group] * self.p if suitor_names is None else suitor_names
+            assert len(self.suitor_names) == self.p
             self.random_state = args.random_state
         assert self.p >= 2 and self.p % 2 == 0
         np.random.seed(self.random_state)

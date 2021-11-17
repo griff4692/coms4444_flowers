@@ -38,8 +38,7 @@ class Suitor(BaseSuitor):
         fix1y = 80 
         slope = (30 - fix1y) / (365 * 6 - (3*6)) 
         calculatedPoint = math.ceil(slope * (round_approx - 3*6) + fix1y)
-        bouquets_to_generate = max(calculatedPoint, 30) 
-        print(f'g4: generating {bouquets_to_generate}')
+        bouquets_to_generate = max(calculatedPoint, 30)
         self.best_arrangement = [self.generate_random_bouquet() for _ in range(bouquets_to_generate)]
         self.sizev, self.colorv, self.typev = [], [], []
         for arrangement in self.best_arrangement:

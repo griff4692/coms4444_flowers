@@ -2,6 +2,6 @@
 __pycache__
 *.log
 .vscode
-config.csv
-venv
-.gitignore
+results
+tourney_configs.csv
+logs

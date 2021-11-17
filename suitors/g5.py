@@ -90,6 +90,98 @@ class Suitor(BaseSuitor):
         self.n_flowers = math.ceil(math.log(num_suitors * days) / math.log(8))
         self.ideal_bouquet: Bouquet = random_bouquet(self.n_flowers)
 
+        # JY code
+        self.bouquet_data_points = {}
+        for sid in range(num_suitors):
+            self.bouquet_data_points[sid] = []
+
+    def get_target_bouquets(self):
+        target_bouquets = []
+        for sid in range(self.num_suitors):
+            if sid is self.suitor_id:
+                continue
+            # Sort on score
+            self.bouquet_data_points[sid].sort(key=lambda x : x[1])
+            total_score = 0
+            for bouquet, score, rank in self.bouquet_data_points[sid]:
+                total_score += score
+            mean = 0
+            if len(self.bouquet_data_points[sid]) is not 0:
+                mean = total_score / len(self.bouquet_data_points[sid])
+            player_diff = self.bouquet_data_points[sid][-1][1] - mean
+            target_bouquets.append((sid, self.bouquet_data_points[sid][-1][0], player_diff))
+        target_bouquets.sort(key=lambda x : x[2], reverse=True)
+        return target_bouquets
+
+    def construct_similar_bouquet(self, flower_counts: Dict[Flower, int], target_bouquet: Bouquet):
+        bouquet_dict = {}
+        while True:
+            flowers_with_overlap = []
+            for flower, count in flower_counts.items():
+                if count is 0:
+                    continue
+                overlap = Suitor.get_overlap(flower, target_bouquet)
+                if overlap > 0:
+                    flowers_with_overlap.append((flower, overlap))
+            if len(flowers_with_overlap) is 0:
+                break
+            flowers_with_overlap.sort(key=lambda x : x[1], reverse=True)
+            flower_to_add = flowers_with_overlap[0][0]
+
+            flower_counts[flower_to_add] -= 1
+            self.reduce_bouquet(flower_to_add, target_bouquet)
+
+            if flower_to_add not in bouquet_dict:
+                bouquet_dict[flower_to_add] = 1
+            else:
+                bouquet_dict[flower_to_add] += 1
+        return bouquet_dict
+
+    def reduce_bouquet(self, flower, bouquet):
+        if flower.size in bouquet.sizes and bouquet.sizes[flower.size] > 0:
+            bouquet.sizes[flower.size] -= 1
+        if flower.color in bouquet.colors and bouquet.colors[flower.color] > 0:
+            bouquet.colors[flower.color] -= 1
+        if flower.type in bouquet.types and bouquet.types[flower.type] > 0:
+            bouquet.types[flower.type] -= 1
+
+    @staticmethod
+    def get_overlap(flower, bouquet):
+        overlap = 0
+        if flower.size in bouquet.sizes and bouquet.sizes[flower.size] > 0:
+            overlap += 1
+        if flower.color in bouquet.colors and bouquet.colors[flower.color] > 0:
+            overlap += 1
+        if flower.type in bouquet.types and bouquet.types[flower.type] > 0:
+            overlap += 1
+        return overlap
+
+    def jy_prepare_final_bouquets(self, flower_counts: Dict[Flower, int]):
+        target_bouquets = self.get_target_bouquets() # Each element form of (sid, Bouquet, player_diff)
+        ret = []
+        bouquet_dicts = []
+        for sid, target_bouquet, _ in target_bouquets:
+            bouquet_dicts.append((sid, self.construct_similar_bouquet(flower_counts, target_bouquet), target_bouquet))
+            #ret.append((self.suitor_id, sid, self.construct_similar_bouquet(flower_counts, target_bouquet)))
+        for sid, bouquet_dict, target_bouquet in bouquet_dicts:
+            while len(bouquet_dict) < len(target_bouquet.arrangement):
+                found_flower = False
+                for flower, count in flower_counts.items():
+                    if count is 0:
+                        continue
+                    else:
+                        found_flower = True
+                        if flower not in bouquet_dict:
+                            bouquet_dict[flower] = 1
+                        else:
+                            bouquet_dict[flower] += 1
+                        flower_counts[flower] -= 1
+                        break
+                if not found_flower:
+                    break
+            ret.append((self.suitor_id, sid, Bouquet(bouquet_dict)))
+        return ret
+
     @staticmethod
     def can_construct(bouquet: Bouquet, flower_counts: Dict[Flower, int]):
         for key, value in bouquet.arrangement.items():
@@ -138,7 +230,8 @@ class Suitor(BaseSuitor):
         """
         self.current_day += 1
         if self.current_day == self.days:
-            return self.prepare_final_bouquets(flower_counts)
+            return self.jy_prepare_final_bouquets(flower_counts)
+            #return self.prepare_final_bouquets(flower_counts)
         # Saving these for later
         bouquets = self.rand_man.prepare_bouquets(flower_counts)
         for _, suitor, bouquet in bouquets:
@@ -209,5 +302,8 @@ class Suitor(BaseSuitor):
             # TODO: for the last round we want to sort this by rank (lowest) and epoch(highest) so that
             #   we pick the best ranked and most recent bouquet
             heapq.heappush(self.feedback, fb)
+
+            #JY Code
+            self.bouquet_data_points[suitor_num].append((self.bouquets[suitor_num], score, rank))
 
         self.rand_man.receive_feedback(feedback)

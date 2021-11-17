@@ -13,7 +13,7 @@ from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, get
 from utils import flatten_counter
 from suitors.base import BaseSuitor
 
-# import time
+import time
 # import pdb
 
 
@@ -81,16 +81,17 @@ class Suitor(BaseSuitor):
         flatten_flowers = [str(f) for f in flatten_counter(flowers)]
 
         # Only looking at 20% of combinations for this size
-        num_flatten_flowers = len(flatten_flowers)
+        # num_flatten_flowers = len(flatten_flowers)
+        num_flatten_flowers = min(num_remaining, 12)
         for size in range(1, min(MAX_BOUQUET_SIZE, num_remaining) + 1):
-            num_flatten_flowers = max(num_flatten_flowers, min(num_remaining, 12))
+            # num_flatten_flowers = max(num_flatten_flowers, min(num_remaining, 12))
             selected_flowers = random.sample(flatten_flowers, num_flatten_flowers)
             size_combos = list(itertools.combinations(selected_flowers, size))
-            size_bouquets = random.sample(size_combos, int(math.comb(num_flatten_flowers, size) * 0.2))
+            size_bouquets = random.sample(size_combos, min(int(math.comb(num_flatten_flowers, size) * 0.2), 1000))
             size_bouquet_counts = [list({**self.all_possible_flowers, **Counter(size_bouquet)}.values()) for
                                    size_bouquet in size_bouquets]
             bouquets.extend(size_bouquet_counts)
-            num_flatten_flowers -= 6 # just to help with combinations -- since combinations requires so much time
+            # num_flatten_flowers -= int(num_flatten_flowers / 4) # just to help with combinations -- since combinations requires so much time
 
         return bouquets
 
@@ -143,6 +144,7 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
+        # time1 = time.time()
         remaining_flowers = flower_counts.copy()
         num_recips = len(self.priority)
 
@@ -176,7 +178,8 @@ class Suitor(BaseSuitor):
                     self.arrangement_hist[recip_id].append(self.arrangement_hist[recip_idx][-1])
                     continue
 
-            if self.curr_day > 1 and self.curr_day >= int(self.days * 0.7): # giving bouquet using best guess from Linear Regression
+            # if self.curr_day > 1 and self.curr_day >= int(self.days * 0.7): # giving bouquet using best guess from Linear Regression
+            if self.curr_day != 0 and self.curr_day == self.days - 1:
                 # getting all valid flower combinations for each person -- so know best bouquet is valid
                 all_possible_bouquets_arr = self._get_all_possible_bouquets_arr(remaining_flowers)
                 list_of_lists = self._extract_the_dimensions(all_possible_bouquets_arr)
@@ -192,8 +195,6 @@ class Suitor(BaseSuitor):
                 # getting first instance of best score and using that bouquet
                 best_flowers = all_possible_bouquets_arr[np.where(pred_score == max(pred_score))[0][0]]
                 converted_best_flowers = self._extract_the_dimensions([best_flowers])[0]
-                time2 = time.time()
-                #print(time2-time1)
 
                 # Creating Bouquet object to return
                 if sum(best_flowers) > 0:
@@ -243,6 +244,8 @@ class Suitor(BaseSuitor):
                     self.bouquet_hist[recip_idx].append(chosen_bouquet)
 
         self.curr_day += 1
+        # time2 = time.time()
+        # print("time2 - time1: {}".format(time2 - time1))
         return bouquets
 
     def zero_score_bouquet(self):

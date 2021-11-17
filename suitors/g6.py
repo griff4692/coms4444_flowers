@@ -40,13 +40,8 @@ class Suitor(BaseSuitor):
         super().__init__(days, num_suitors, suitor_id, name='g6')
         self.wanted_bouquet = sample_n_random_flowers(get_all_possible_flowers(),MAX_BOUQUET_SIZE)
         self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
-<<<<<<< HEAD
-        self.wanted_colors,self.wanted_sizes,self.wanted_types = self._parse_bouquet(self.wanted_bouquet)
-        self.threshold = 0.99
-=======
         self.wanted_colors,self.wanted_sizes,self.wanted_types = self._parse_bouquet()
-        self.threshold = 0.9
->>>>>>> 1bd9835178c15320a9fe9e4389a057f77ba7a1b4
+        self.threshold = 0.99
 
     def _parse_bouquet(self):
         colors = np.zeros(6)
@@ -197,11 +192,8 @@ class Suitor(BaseSuitor):
                 # getting first instance of best score and using that bouquet
                 best_flowers = all_possible_bouquets_arr[np.where(pred_score == max(pred_score))[0][0]]
                 converted_best_flowers = self._extract_the_dimensions([best_flowers])[0]
-<<<<<<< HEAD
                 time2 = time.time()
                 #print(time2-time1)
-=======
->>>>>>> 1bd9835178c15320a9fe9e4389a057f77ba7a1b4
 
                 # Creating Bouquet object to return
                 if sum(best_flowers) > 0:

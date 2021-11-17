@@ -113,7 +113,36 @@ class Suitor(BaseSuitor):
             to_return[item] = num_of_item
         to_return[items_to_split[-1]] = max_number - running_sum
         return to_return
+    
+    def similarity_score(self, bouquet, scoring_function, flowers, copy_flower_counts, count, target):
+        for flow in flowers:
+            if count >= 12:
+                return count, bouquet, scoring_function, flowers, copy_flower_counts
+            similarity = 0
+            typ = False
+            size = False
+            color = False
 
+            if scoring_function[flow[0].type] > 0:
+                similarity +=1
+            if scoring_function[flow[0].size] > 0:
+                similarity +=1
+            if scoring_function[flow[0].color] > 0:
+                similarity +=1
+
+            if similarity == target:
+                if copy_flower_counts[str(flow[0])] > 0:
+                    count += 1
+                    if typ:
+                        scoring_function[flow[0].type] -= 1
+                    if size:
+                        scoring_function[flow[0].size] -= 1
+                    if color:
+                        scoring_function[flow[0].color] -= 1
+                    bouquet[flow[0]] += 1
+                    copy_flower_counts[str(flow[0])] -= 1
+        return count, bouquet, scoring_function, flowers, copy_flower_counts
+    
     def prepare_bouquet_for_group(self, group_id, flowers, copy_flower_counts, rand=False, last=False):
         bouquet = defaultdict(int)
         bouquet_info = defaultdict(int)
@@ -132,86 +161,37 @@ class Suitor(BaseSuitor):
                     break
     
         elif last:
-            scoring_function = deepcopy(scoring_function)
-            for flow in flowers:
-                similarity = 0
-                typ = False
-                size = False
-                color = False
+            #scoring_function = deepcopy(scoring_function)
+            #count = 0
+            #for i in range(3, 1, -1):
+            #    count, bouquet, scoring_function, flowers, copy_flower_counts = self.similarity_score(bouquet, scoring_function, flowers, copy_flower_counts, count, i)
+            #print(len(bouquet))
 
-                if scoring_function[flow[0].type] > 0:
-                    similarity +=1
-                if scoring_function[flow[0].size] > 0:
-                    similarity +=1
-                if scoring_function[flow[0].color] > 0:
-                    similarity +=1
-
-                if similarity == 3:
-                    print("THREE")
-                    if copy_flower_counts[str(flow[0])] > 0:
-                        scoring_function[flow[0].type] -= 1
-                        scoring_function[flow[0].size] -= 1
-                        scoring_function[flow[0].color] -= 1
-                        bouquet[flow[0]] += 1
-                        copy_flower_counts[str(flow[0])] -= 1
-                
-            for flow in flowers:
-                similarity = 0
-                typ = False
-                size = False
-                color = False
-
-                if scoring_function[flow[0].type] > 0:
-                    similarity +=1
-                    typ = True
-                if scoring_function[flow[0].size] > 0:
-                    similarity +=1
-                    size = True
-                if scoring_function[flow[0].color] > 0:
-                    similarity +=1
-                    color = True
-
-                if similarity == 2:
-                    print("TWO")
-                    if copy_flower_counts[str(flow[0])] > 0:
-                        if typ:
-                            scoring_function[flow[0].type] -= 1
-                        if size:
-                            scoring_function[flow[0].size] -= 1
-                        if color:
-                            scoring_function[flow[0].color] -= 1
-                        bouquet[flow[0]] += 1
-                        copy_flower_counts[str(flow[0])] -= 1
-
-            for flow in flowers:
-                similarity = 0
-                typ = False
-                size = False
-                color = False
-
-                if scoring_function[flow[0].type] > 0:
-                    similarity +=1
-                    typ = True
-                if scoring_function[flow[0].size] > 0:
-                    similarity +=1
-                    size = True
-                if scoring_function[flow[0].color] > 0:
-                    similarity +=1
-                    color = True
-
-                if similarity == 1:
-                    print("ONE")
-                    if copy_flower_counts[str(flow[0])] > 0:
-                        if typ:
-                            scoring_function[flow[0].type] -= 1
-                        if size:
-                            scoring_function[flow[0].size] -= 1
-                        if color:
-                            scoring_function[flow[0].color] -= 1
-                        bouquet[flow[0]] += 1
-                        copy_flower_counts[str(flow[0])] -= 1
-            print(len(bouquet))
-            print(scoring_function)
+            #can_best = True
+            best_score = float('-inf')
+            best_bouquet = None
+            #flower_counts = {}
+            index = 0
+            for p in prev_bouquets:
+                score = p[-1]
+                b = p[:-2]
+                if score >= best_score:
+                    best_score = score
+                    best_bouquet = b
+            
+            best = defaultdict(int)
+            if best_bouquet != None:
+                for bouq in best_bouquet:
+                    for flower in bouq.flowers():
+                        best[flower.type] += 1
+                        best[flower.color] += 1
+                        best[flower.size] += 1
+            count = 0
+            for i in range(3, 0, -1):
+                count, bouquet, best, flowers, copy_flower_counts = self.similarity_score(bouquet, best, flowers, copy_flower_counts, count, i)
+            
+            
+            #print(copy_flower_counts)
         else:
             scoring_function_copy = deepcopy(scoring_function)
             max_flowers_to_give = min(sum(scoring_function.values()) // 3 + int((self.turn / self.days) * self.total_number_flowers // 4), self.max_flowers_to_give)

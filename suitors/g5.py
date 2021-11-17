@@ -320,7 +320,30 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
-        return self.ideal_bouquet
+        num_colors, color = self.color_settings
+        num_types, ftype = self.type_settings
+        num_sizes, size = self.size_settings
+
+        colors, types, sizes = [color] * num_colors, [ftype] * num_types, [size] * num_sizes
+        total_flowers = max([num_colors, num_types, num_sizes])
+
+        def pad(arr, desired_length, pad_with):
+            while len(arr) < desired_length:
+                arr.append(pad_with)
+
+        pad(colors, total_flowers, FlowerColors((color.value + 1) % (len(FlowerColors) - 1)))
+        pad(types, total_flowers, FlowerTypes((ftype.value + 1) % (len(FlowerTypes) - 1)))
+        pad(sizes, total_flowers, FlowerSizes((size.value + 1) % (len(FlowerSizes) - 1)))
+
+        b = {}
+        for c, t, s in zip(colors, types, sizes):
+            f = Flower(size=s, color=c, type=t)
+            if f in b:
+                b[f] += 1
+            else:
+                b[f] = 1
+
+        return Bouquet(b)
 
     @staticmethod
     def new_score_fn(max_possible, required: Tuple[int, Union[FlowerTypes, FlowerColors, FlowerSizes]], actual_x: Dict) -> float:

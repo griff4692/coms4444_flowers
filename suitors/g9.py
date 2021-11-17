@@ -173,7 +173,7 @@ class Suitor(BaseSuitor):
         best_fit = {}
         sequence = []
 
-        print(self.all_bouquets_by_element)
+        #print(self.all_bouquets_by_element)
         for player in self.all_bouquets_by_element:
             sequence.append(player)
             best_fit[player]=(None,0)

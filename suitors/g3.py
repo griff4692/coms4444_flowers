@@ -78,6 +78,7 @@ def estimate_flowers_in_bouquets(color_weights, size_weights, type_weights, flow
 
 def learned_bouquets(bouquet_feedback, suitor, flower_counts, recipient_ids):
     res = []
+
     if suitor in recipient_ids :
         recipient_ids.remove(suitor)
     for recipient in recipient_ids:
@@ -197,6 +198,32 @@ def generate_similar_bouquet(flower_counts: Dict[Flower, int], desired_bouquet):
 
 
 
+def priority(recipient_ids, bouquet_feedback, final_round=False):
+    """
+    :param recipient_ids: list of recipient ids currently in game
+    :param bouquet_feedback: dict of feedback o previously given bouquets
+    :param final_round: determines whether solved players (where we scored 1 on) are a priority or not
+
+    :return: list of recipient ids in order of priority
+    """
+    ordering = [(r_id,
+                 bouquet_feedback[r_id]["size"][-1]["score"],
+                 bouquet_feedback[r_id]["size"][-1]["rank"]) for r_id in recipient_ids]
+    # first pass: sort by rank and then by score
+    ordering = sorted(ordering, key=lambda y: (y[2], -y[1]))
+    # second pass: move players we score 0 on to back
+    for i in range(len(ordering)):
+        if ordering[-i][1] == 0:
+            ordering.append(ordering.pop(-i))
+    # if not the final round, move players we score 1 on to back as well
+    if not final_round:
+        for i in range(len(ordering)):
+            if ordering[-i][1] == 1:
+                ordering.append(ordering.pop(-i))
+    new_r_ids = [r_id for r_id, _, _ in ordering]
+    return new_r_ids
+
+
 class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
         """
@@ -247,9 +274,10 @@ class Suitor(BaseSuitor):
         """
         self.day_count += 1
 
+        if self.day_count >= self.first_pruning:
+            recipient_ids = priority(self.recipient_ids, self.bouquet_feedback)
+            flower_counts, bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts.copy(), recipient_ids)
 
-        if self.day_count > self.first_pruning and self.total_days > 3 :
-            flower_counts, bouquets = learned_bouquets(self.bouquet_feedback.copy(), self.suitor_id, flower_counts.copy(), self.priority_queue)
         else:
             bouquets = list()
             for r_id in self.queue:
@@ -260,6 +288,7 @@ class Suitor(BaseSuitor):
                 if self.day_count < self.first_pruning:
                     self.queue.append(self.queue.pop(0))
                 bouquets.append((self.suitor_id, r_id, b))
+                self.recipient_ids.append(self.recipient_ids.pop(0))
 
         for b in bouquets:
             _, r, v = b

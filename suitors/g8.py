@@ -33,7 +33,7 @@ class Suitor(BaseSuitor):
             for n in range(1, 13):
                 self.alloptions = self.alloptions + list(itertools.combinations_with_replacement([0,1,2,3,4,5], n))
             l = len(self.alloptions)
-            ones = math.ceil((1/(self.num_suitors-1))*l)
+            ones = math.ceil((1/(self.num_suitors+1))*l)
             zeros = l - ones
             mask = [True for n in range(ones)] + [False for n in range(zeros)]
             random.shuffle(mask)
@@ -356,12 +356,13 @@ class Suitor(BaseSuitor):
             for i,rank_score in enumerate(this_rounds_feedback): # rank_score is tuple with rank,score,ties
                 if i in self.random_tested_suitors:
                     score = rank_score[1]
+                    # Worst case rank = rank + ties - 1
+                    worst_case_rank = rank_score[0] + rank_score[2] - 1
                     suitor = i
                     self.given[suitor][-1][1] = score
-                    # our internal rank is rank + ties - 1
-                    self.given[suitor][-1][2] = rank_score[0] + rank_score[2] - 1
+                    self.given[suitor][-1][2] = worst_case_rank
 
-                    if rank_score[0] == 1 or rank_score[0] == 2:   # Remember this bouquet
+                    if score > 0.9 and worst_case_rank < 3:   # Remember this bouquet
                         temp = []
                         temp.append(self.bouquets_given_this_round[suitor])
                         temp.append(score)
@@ -373,8 +374,12 @@ class Suitor(BaseSuitor):
 
         remaining_flowers = flower_counts.copy()
 
+        # In 1 day case, it is the final day
+        if self.days == 1:
+            return list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), self.recipient_ids))
+
         # Is final day, so prepare special bouquets
-        if self.day_number-1 == self.days:
+        if self.day_number == self.days:
             if self.days > 30:
                 # Means we have used controlled strat, so scoring prefs for each player is different
                 scores_per_player = self.convert_prefs_to_scores_per_player()

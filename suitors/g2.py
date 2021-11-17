@@ -368,12 +368,17 @@ class Suitor(BaseSuitor):
                 self.scoring_parameters[o_id][flower.type] += 1
                 self.scoring_parameters[o_id][flower.color] += 1
         
+        if self.turn >= self.days:
+            return
+        
         total_flowers_given = sum(self.scoring_parameters[o_id].values()) // 3
         if total_flowers_given == 0:
             return
         parameters = ["size","color","type"]
 
+        tries = 0
         while True:
+            tries += 1
             to_change = random.choice(parameters)
 
             if to_change == "size":
@@ -387,15 +392,23 @@ class Suitor(BaseSuitor):
             
             if self.scoring_parameters[o_id][to_increase] < total_flowers_given:
                 break
+
+            if tries > 20:
+                return
         
+        tries = 0
         to_decrease = None
         while to_decrease == None:
             # print("decreasing")
+            tries += 1
             to_decrease = random.choice(params)
             if to_decrease == to_increase or self.scoring_parameters[o_id][to_decrease] == 0:
                 to_decrease = None
             else:
                 break
+
+            if tries > 20:
+                return
         
         self.scoring_parameters[o_id][to_increase] += 1
         self.scoring_parameters[o_id][to_decrease] -= 1

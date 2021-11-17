@@ -85,6 +85,7 @@ def learned_bouquets(bouquet_feedback, suitor, flower_counts, recipient_ids):
         flower_for_each_round = random.randrange(2, 10)
         flowers = learned_weightage(bouquet_feedback[recipient], flower_for_each_round)
         if flowers.keys() :
+            #print(flowers)
             flower_counts, r = estimate_flowers_in_bouquets(flowers["color"], flowers["size"], flowers["type"], flower_counts)
             res.append((suitor, recipient, Bouquet(r)))
         else :
@@ -94,6 +95,8 @@ def learned_bouquets(bouquet_feedback, suitor, flower_counts, recipient_ids):
 
 
 def learned_weightage(bouquet_feedback, flower_for_each_round):
+    #print("bouquet feedback")
+    #print(bouquet_feedback)
     global X
     global Y
     global model
@@ -103,42 +106,45 @@ def learned_weightage(bouquet_feedback, flower_for_each_round):
         warnings.filterwarnings("ignore")
         for factor in ["color", "size", "type"] :
             df = pd.DataFrame(bouquet_feedback[factor]).fillna(0)
+            temp_sum = sum(bouquet_feedback["score"])
             Y[factor] = bouquet_feedback["score"]
+            if temp_sum == 0 :
+                Y[factor] = bouquet_feedback["rank"]
             X[factor] = df
             cols = X[factor].columns
             if len(cols) == 0:
-                return {}
-            elif len(cols) == 1:
-                return {cols[0]: flower_for_each_round}
+                flowers1 = {"color":{}, "size":{}, "type":{}}
+                return flowers1;
+            else :
+                model[factor] = LinearRegression()
+                model[factor].fit(X[factor], Y[factor])
+                coefficients = model[factor].coef_
 
-            model[factor] = LinearRegression()
-            model[factor].fit(X[factor], Y[factor])
-            coefficients = model[factor].coef_
-
-            # only consider positive elements in bouquet
-            res = {}
-            temp_sum = 0.0
-            max_neg = inf
-            for i in range(len(coefficients)):
-                c = coefficients[i]
-                if c > 0:
+                # only consider positive elements in bouquet
+                res = {}
+                temp_sum = 0.0
+                max_neg = inf
+                for i in range(len(coefficients)):
+                    c = coefficients[i]
                     res[cols[i]] = c
-                max_neg = min(max_neg, c)
+                    max_neg = min(max_neg, c)
 
-            for key in res.keys():
-                res[key] -= max_neg
-                temp_sum += res[key]
+                if max_neg<0 :
+                    for key in res.keys():
+                        res[key] -= max_neg
+                temp_sum = sum(res.values())
 
-            if temp_sum == 0.0:
-                return res
+                if temp_sum == 0.0:
+                    #print("res")
+                    return flowers2
 
-            weight = flower_for_each_round / temp_sum
-            res = {k: floor(v * weight) for k, v in sorted(res.items(), key=lambda item: item[1])}
-            addent = flower_for_each_round - sum(res.values())
-            most_weighted_key = list(res.keys())[-1]
-            res[most_weighted_key] += addent
+                weight = flower_for_each_round / temp_sum
+                res = {k: floor(v * weight) for k, v in sorted(res.items(), key=lambda item: item[1])}
+                addent = flower_for_each_round - sum(res.values())
+                most_weighted_key = list(res.keys())[-1]
+                res[most_weighted_key] += addent
 
-            flowers1[factor] = res
+                flowers1[factor] = res
 
         testX = {}
         score_flowers2, score_flowers1 = 0.0, 0.0
@@ -150,8 +156,9 @@ def learned_weightage(bouquet_feedback, flower_for_each_round):
             score_flowers2 += score[1]
 
         if score_flowers2 > score_flowers1:
+            #print("flower2")
             return flowers2
-
+        #print("flower1")
         return flowers1
 
 
@@ -207,10 +214,10 @@ def priority(recipient_ids, bouquet_feedback, final_round=False):
     :return: list of recipient ids in order of priority
     """
     ordering = [(r_id,
-                 bouquet_feedback[r_id]["size"][-1]["score"],
-                 bouquet_feedback[r_id]["size"][-1]["rank"]) for r_id in recipient_ids]
+                 bouquet_feedback[r_id]["score"][-1],
+                 bouquet_feedback[r_id]["rank"][-1]) for r_id in recipient_ids]
     # first pass: sort by rank and then by score
-    ordering = sorted(ordering, key=lambda y: (y[2], -y[1]))
+    ordering = sorted(ordering, key=lambda y: (y[2], y[1]))
     # second pass: move players we score 0 on to back
     for i in range(len(ordering)):
         if ordering[-i][1] == 0:
@@ -235,6 +242,8 @@ class Suitor(BaseSuitor):
         self.day_count = 0
         self.total_days = days
         self.first_pruning = random.randint(days // 3, days // 2)
+        if self.first_pruning <= 2 and self.total_days>=3 :
+            self.first_pruning = self.total_days
         self.logger = logging.getLogger(__name__)
         possible_flowers = []
         bouquet = defaultdict(int)
@@ -274,9 +283,9 @@ class Suitor(BaseSuitor):
         """
         self.day_count += 1
 
-        if self.day_count >= self.first_pruning:
-            recipient_ids = priority(self.recipient_ids, self.bouquet_feedback)
-            flower_counts, bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts.copy(), recipient_ids)
+        if self.day_count >= self.first_pruning and self.first_pruning>2:
+            #print("called")
+            flower_counts, bouquets = learned_bouquets(self.bouquet_feedback, self.suitor_id, flower_counts.copy(), priority(self.recipient_ids, self.bouquet_feedback))
 
         else:
             bouquets = list()
@@ -355,7 +364,8 @@ class Suitor(BaseSuitor):
         :return: nothing
         """
         # self.logger.info("in feedback")
+        l = len(self.recipient_ids)
         for r_id in self.recipient_ids:
-            rank, score, _ = feedback[r_id]
+            rank, score, ties = feedback[r_id]
             self.bouquet_feedback[r_id]["score"].append(score)
-            self.bouquet_feedback[r_id]["rank"].append(rank)
+            self.bouquet_feedback[r_id]["rank"].append(l-(rank+ties-1))

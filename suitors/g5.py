@@ -295,8 +295,10 @@ class Suitor(BaseSuitor):
     def score_x(self, max_score: float, actual_x: Dict, ideal_x: Dict) -> float:
         matching = self.n_flowers
         for x, c in ideal_x.items():
-            if x not in actual_x or c > actual_x[x]:
+            if x not in actual_x:
                 matching -= c
+            elif c > actual_x[x]:
+                matching += (actual_x[x] - c)
         if matching <= 0:
             return 0.0
         return max_score / 2**(self.n_flowers - matching)

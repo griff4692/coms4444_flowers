@@ -105,12 +105,16 @@ class Suitor(BaseSuitor):
             total_score = 0
             for bouquet, score, rank in self.bouquet_data_points[sid]:
                 total_score += score
-            mean = 0
-            if len(self.bouquet_data_points[sid]) is not 0:
+
+            if len(self.bouquet_data_points[sid]) != 0:
                 mean = total_score / len(self.bouquet_data_points[sid])
-            player_diff = self.bouquet_data_points[sid][-1][1] - mean
-            target_bouquets.append((sid, self.bouquet_data_points[sid][-1][0], player_diff))
-        target_bouquets.sort(key=lambda x : x[2], reverse=True)
+                best_score_fb = self.bouquet_data_points[sid][-1]
+                target_bouquet, best_score, _ = best_score_fb
+                player_diff = best_score - mean
+                target_bouquets.append((sid, target_bouquet, player_diff))
+
+        # Sort by difference, highest first, so we can try to construct in that order
+        target_bouquets.sort(key=lambda x: x[2], reverse=True)
         return target_bouquets
 
     def construct_similar_bouquet(self, flower_counts: Dict[Flower, int], target_bouquet: Bouquet):
@@ -230,10 +234,12 @@ class Suitor(BaseSuitor):
         """
         self.current_day += 1
         if self.current_day == self.days:
-            return self.jy_prepare_final_bouquets(flower_counts)
-            #return self.prepare_final_bouquets(flower_counts)
-        # Saving these for later
-        bouquets = self.rand_man.prepare_bouquets(flower_counts)
+            bouquets = self.jy_prepare_final_bouquets(flower_counts)
+        else:
+            bouquets = self.rand_man.prepare_bouquets(flower_counts)
+
+        # Save the bouquets so we can associate them with the feedback
+        self.bouquets = {}
         for _, suitor, bouquet in bouquets:
             self.bouquets[suitor] = bouquet
 

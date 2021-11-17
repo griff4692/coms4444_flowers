@@ -162,11 +162,14 @@ class Suitor(BaseSuitor):
 
     def jy_prepare_final_bouquets(self, flower_counts: Dict[Flower, int]):
         target_bouquets = self.get_target_bouquets() # Each element form of (sid, Bouquet, player_diff)
-        ret = []
+        # Ensure every suitor gets a bouquet, even if empty. This is required for the simulator.
+        ret = {n: (self.suitor_id, n, Bouquet({})) for n in range(self.num_suitors)}
+        del ret[self.suitor_id]
+
         bouquet_dicts = []
         for sid, target_bouquet, _ in target_bouquets:
             bouquet_dicts.append((sid, self.construct_similar_bouquet(flower_counts, target_bouquet), target_bouquet))
-            #ret.append((self.suitor_id, sid, self.construct_similar_bouquet(flower_counts, target_bouquet)))
+
         for sid, bouquet_dict, target_bouquet in bouquet_dicts:
             while len(bouquet_dict) < len(target_bouquet.arrangement):
                 found_flower = False
@@ -183,8 +186,9 @@ class Suitor(BaseSuitor):
                         break
                 if not found_flower:
                     break
-            ret.append((self.suitor_id, sid, Bouquet(bouquet_dict)))
-        return ret
+            ret[sid] = (self.suitor_id, sid, Bouquet(bouquet_dict))
+
+        return list(ret.values())
 
     @staticmethod
     def can_construct(bouquet: Bouquet, flower_counts: Dict[Flower, int]):
@@ -302,6 +306,7 @@ class Suitor(BaseSuitor):
                 continue
             # Custom class to encapsulate feedback info and sort accordingly
             fb = SuitorFeedback(suitor_num, self.current_day, rank, score, self.bouquets[suitor_num])
+
             # Suitor specific PQ
             heapq.heappush(self.feedback_cache[suitor_num], fb)
             # Global PQ

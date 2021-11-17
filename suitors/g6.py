@@ -43,7 +43,7 @@ class Suitor(BaseSuitor):
         self.wanted_bouquet = sample_n_random_flowers(get_all_possible_flowers(),MAX_BOUQUET_SIZE)
         self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
         self.wanted_colors,self.wanted_sizes,self.wanted_types = self._parse_bouquet(self.wanted_bouquet)
-        self.threshold = 0.9
+        self.threshold = 0.99
 
     def _parse_bouquet(self,boquet):
         colors = np.zeros(6)
@@ -53,7 +53,6 @@ class Suitor(BaseSuitor):
             colors[flower.color.value]+=number
             sizes[flower.size.value]+=number
             types[flower.type.value]+=number
-        print(colors,sizes,types)
         return colors,sizes,types
 
     def cosine_similarity(self,a,b):
@@ -209,7 +208,7 @@ class Suitor(BaseSuitor):
                 time1 = time.time()
                 converted_best_flowers = self._extract_the_dimensions([best_flowers])[0]
                 time2 = time.time()
-                print(time2-time1)
+                #print(time2-time1)
 
                 # Creating Bouquet object to return
                 if sum(best_flowers) > 0:

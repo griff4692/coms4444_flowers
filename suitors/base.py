@@ -43,6 +43,13 @@ class BaseSuitor(ABC):
         """
         return self.prepare_bouquets(flower_counts)
 
+    @break_after(10, fallback_func=prepare_empty_bouquets)
+    def prepare_bouquets_timed_final_round(self, flower_counts: Dict[Flower, int]):
+        """
+        Imposes 1 second time limit on self.prepare_bouqets.  Do not override this method
+        """
+        return self.prepare_bouquets(flower_counts)
+
     @abstractmethod
     def zero_score_bouquet(self):
         """
@@ -94,7 +101,7 @@ class BaseSuitor(ABC):
         """
         Imposes 1 second time limit on self.receive_feedback.  Do not override this method
         """
-        return self.receive_feedback_timed(feedback)
+        return self.receive_feedback(feedback)
 
     def get_num_suitors(self):
         """

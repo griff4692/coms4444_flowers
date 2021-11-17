@@ -375,8 +375,18 @@ class Suitor(BaseSuitor):
             d += max(target - guess, 0)
         # print("distance calculation")
         # print(unit, d)
-        return 2*d
+        return d
         # return abs(12 - sum(guessed_counts.values()))
+
+    def distance_function(self, weight, distance):
+        # return max((weight - (distance) * 0.05), 0)
+        from scipy.stats import norm
+        mean_distance = 2
+        std_distance = 2
+        max_score = norm.pdf(mean_distance, mean_distance, std_distance)
+        given_score = norm.pdf(distance, mean_distance, std_distance)
+        factor = given_score / (max_score)
+        return weight * factor
 
     def score_attribute(self, attribute_name, guess):
         if sum(guess.values()) == 0:
@@ -389,7 +399,7 @@ class Suitor(BaseSuitor):
 
         else:
             # return weight / distance
-            return max((weight - (distance) * 0.05), 0)
+            return self.distance_function(weight, distance)
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """

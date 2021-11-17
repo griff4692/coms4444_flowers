@@ -62,6 +62,7 @@ class Suitor(BaseSuitor):
 
         self.mean_distance, self.std_distance = self.get_mean_and_std(num_suitors, days)
 
+        self.best_records = defaultdict(list)
         # self.num_flowers_in_bouquet = self.get_random_num_flowers(seed=2)
         self.num_flowers_in_bouquet = 9
         self.our_favorite_bouquet = self.get_random_bouquet(num_flowers = self.num_flowers_in_bouquet)
@@ -130,7 +131,7 @@ class Suitor(BaseSuitor):
                      30: (2, 0.5),
                      210: (2, 0.5),
                      420: (1, 0.5),
-                     900: (3, 0.5),
+                     900: (3, 0.3),
                      2700: (1, 0.3),
                      90: (3, 0.5),
                      630: (1, 0.5),
@@ -296,6 +297,7 @@ class Suitor(BaseSuitor):
 
         if self.turn > 1:
             self.rank_groups()
+            # print(self.other_suitors)
 
         for o_id in self.other_suitors:
             r = random.uniform(0,1)
@@ -348,10 +350,8 @@ class Suitor(BaseSuitor):
             guess = guessed_counts[unit] if unit in guessed_counts else 0
             target = target_counts[unit] if unit in target_counts else 0
             d += max(target - guess, 0)
-        # print("distance calculation")
-        # print(unit, d)
         return d
-        # return abs(12 - sum(guessed_counts.values()))
+
 
     def distance_function(self, weight, distance):
         # return max((weight - (distance) * 0.05), 0)
@@ -409,12 +409,17 @@ class Suitor(BaseSuitor):
                 self.scoring_parameters[o_id][flower.type] += 1
                 self.scoring_parameters[o_id][flower.color] += 1
         
+        if self.turn >= self.days:
+            return
+        
         total_flowers_given = sum(self.scoring_parameters[o_id].values()) // 3
         if total_flowers_given == 0:
             return
         parameters = ["size","color","type"]
 
+        tries = 0
         while True:
+            tries += 1
             to_change = random.choice(parameters)
 
             if to_change == "size":
@@ -428,15 +433,23 @@ class Suitor(BaseSuitor):
             
             if self.scoring_parameters[o_id][to_increase] < total_flowers_given:
                 break
+
+            if tries > 20:
+                return
         
+        tries = 0
         to_decrease = None
         while to_decrease == None:
             # print("decreasing")
+            tries += 1
             to_decrease = random.choice(params)
             if to_decrease == to_increase or self.scoring_parameters[o_id][to_decrease] == 0:
                 to_decrease = None
             else:
                 break
+
+            if tries > 20:
+                return
         
         self.scoring_parameters[o_id][to_increase] += 1
         self.scoring_parameters[o_id][to_decrease] -= 1
@@ -466,10 +479,34 @@ class Suitor(BaseSuitor):
 
     def rank_groups(self):
         g_rank_s = defaultdict(int)
+        # print("rgiven:", self.bouquets_given)
 
         for o_id in self.other_suitors:
             rank = self.bouquets_given[o_id][-1][1]
             score = self.bouquets_given[o_id][-1][2]
-            g_rank_s[o_id] = score/rank
+
+            if o_id in self.best_records:
+                if self.best_records[o_id][0]>rank:
+                    self.best_records[o_id][0] = rank
+                    self.best_records[o_id][1] = score
+                elif self.best_records[o_id][0]==rank and self.best_records[o_id][1]>score:
+                    self.best_records[o_id][1] = score
+            else:
+                self.best_records[o_id] = [rank, score]
+
+            rank = self.best_records[o_id][0]
+            score = self.best_records[o_id][1]
+
+            # print(o_id, rank, score)
+            g_rank_s[o_id] = -2*rank
+
+            if self.turn != self.days:
+                g_rank_s[o_id] -= score
+                if rank == 1 and score == 0:
+                    g_rank_s[o_id] -= random.random()
+            else:
+                g_rank_s[o_id] += score
+
+            # g_rank_s[o_id] = score/rank
 
         self.other_suitors = [k for k, v in sorted(g_rank_s.items(), key=lambda x: x[1], reverse=True)]

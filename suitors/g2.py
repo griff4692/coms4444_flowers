@@ -188,13 +188,16 @@ class Suitor(BaseSuitor):
                         best[flower.type] += 1
                         best[flower.color] += 1
                         best[flower.size] += 1
+            print(copy_flower_counts)
             print(best)
             print(i)
             print(best_bouquet)
             count = 0
             for i in range(3, 0, -1):
                 count, bouquet, best, flowers, copy_flower_counts = self.similarity_score(bouquet, best, flowers, copy_flower_counts, count, i)
-            print(len(bouquet))
+            print(bouquet)
+            print()
+
             
             
             #print(copy_flower_counts)

@@ -6,16 +6,16 @@ import math
 import numpy as np
 import pandas as pd
 import random
-import pdb
 from sklearn.linear_model import LinearRegression
 
 from constants import MAX_BOUQUET_SIZE
-from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, get_all_possible_flowers
+from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, get_all_possible_flowers,sample_n_random_flowers
 from utils import flatten_counter
 from suitors.base import BaseSuitor
 
-# import time
+import time
 # import pdb
+
 
 
 class Suitor(BaseSuitor):
@@ -34,11 +34,52 @@ class Suitor(BaseSuitor):
         self.NUM_ALL_POSSIBLE_FLOWERS = len(self.all_possible_flower_keys)
         
         self.all_possible_flowers = dict(zip(self.all_possible_flower_keys, [0] * self.NUM_ALL_POSSIBLE_FLOWERS))
-        self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
+
 
         self.priority = [i for i in list(range(num_suitors)) if i != suitor_id]
         super().__init__(days, num_suitors, suitor_id, name='g6')
+        self.wanted_bouquet = sample_n_random_flowers(get_all_possible_flowers(),MAX_BOUQUET_SIZE)
+        self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
+        self.wanted_colors,self.wanted_sizes,self.wanted_types = self._parse_bouquet()
+        self.threshold = 0.9
+        if num_suitors>=36:
+            if days<90:
+                self.threshold = 0.95
+            elif days>180:
+                self.threshold = 0.99
+            else:
+                self.threshold = 0.97
+        elif num_suitors>=18:
+            if days<90:
+                self.threshold = 0.92
+            elif days>180:
+                self.threshold = 0.97
+            else:
+                self.threshold = 0.95
+        else:
+            if days<90:
+                self.threshold = 0.90
+            elif days>180:
+                self.threshold = 0.95
+            else:
+                self.threshold = 0.92
 
+
+
+    def _parse_bouquet(self):
+        colors = np.zeros(6)
+        sizes = np.zeros(3)
+        types = np.zeros(4)
+        for flower,number in self.wanted_bouquet.items():
+            colors[flower.color.value]+=number
+            sizes[flower.size.value]+=number
+            types[flower.type.value]+=number
+        return colors,sizes,types
+
+    def cosine_similarity(self,a,b):
+        if np.linalg.norm(a)==0 or np.linalg.norm(b) == 0:
+            return 0
+        return np.dot(a,b)/(np.linalg.norm(a)*np.linalg.norm(b))
 
     def _prepare_rand_bouquet(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
@@ -62,31 +103,25 @@ class Suitor(BaseSuitor):
 
         flatten_flowers = [str(f) for f in flatten_counter(flowers)]
 
-        # # 70 % of days, will use linear regression to give best guess on bouquet
-        # # on each day, will sample fraction of all possible combinations
-        # # sum of all fractions will sum to 100% of total sample space
-        # for _ in range(int((MAX_BOUQUET_SIZE + 1) * 10 / (7 * self.days))):
-
         # Only looking at 20% of combinations for this size
+        # num_flatten_flowers = len(flatten_flowers)
+        num_flatten_flowers = min(num_remaining, 12)
         for size in range(1, min(MAX_BOUQUET_SIZE, num_remaining) + 1):
-            num_flatten_flowers = len(flatten_flowers)
-            selected_flowers = flatten_flowers
-
-            num_combos = int(math.comb(num_flatten_flowers, size))
-            if num_combos > 100000:
-                num_flatten_flowers = min(num_flatten_flowers, 10)
-                selected_flowers = random.sample(flatten_flowers, num_flatten_flowers)
-
+            # num_flatten_flowers = max(num_flatten_flowers, min(num_remaining, 12))
+            selected_flowers = random.sample(flatten_flowers, num_flatten_flowers)
             size_combos = list(itertools.combinations(selected_flowers, size))
-            size_bouquets = random.sample(size_combos, min(int(math.comb(num_flatten_flowers, size) * 0.2), 2000))
+            size_bouquets = random.sample(size_combos, min(int(math.comb(num_flatten_flowers, size) * 0.2), 1000))
             size_bouquet_counts = [list({**self.all_possible_flowers, **Counter(size_bouquet)}.values()) for
                                    size_bouquet in size_bouquets]
             bouquets.extend(size_bouquet_counts)
+            # num_flatten_flowers -= int(num_flatten_flowers / 4) # just to help with combinations -- since combinations requires so much time
 
         return bouquets
 
     def _extract_the_dimensions(self, bouquets):
+        
         list_of_dicts = []
+
         for bouquet in bouquets:
             dict_of_features = {}
             for elem in self.all_possible_flower_keys:
@@ -117,8 +152,8 @@ class Suitor(BaseSuitor):
                         dict_of_features[ftype] = dict_of_features[ftype] + 1
                     else:
                         dict_of_features[ftype] = 0
-                list_of_dicts.append(dict_of_features)
-
+            list_of_dicts.append(list(dict_of_features.values()))
+        
         return list_of_dicts
 
 
@@ -132,53 +167,57 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
-        # all_ids = np.arange(self.num_suitors)
-        # recipient_ids = all_ids[all_ids != self.suitor_id]
+        #time1 = time.time()
         remaining_flowers = flower_counts.copy()
+        num_recips = len(self.priority)
 
         # keys across days for flowers are str(flower) so need to have matching from str(flower) back to flower object
         rem_flower_key_pairs = dict()
         for f in remaining_flowers.keys():
             rem_flower_key_pairs[str(f)] = f
 
-        bouquets = []
-        for i in range(len(self.priority)):
-            if self.curr_day != 0 and self.score_hist[i][-1] == 1: # already know best bouquet possible
+        bouquets = [0] * num_recips
+        for i in range(num_recips):
+            recip_id = self.priority[i]
+            recip_idx = recip_id - 1 if recip_id > self.suitor_id else recip_id
+
+            if self.curr_day != 0 and self.score_hist[recip_idx][-1] == 1: # already know best bouquet possible
                 if self.curr_day == self.days - 1: # last day so give best bouquet
                     # ensure have the flowers to do so
-                    have_flowers = all(k in remaining_flowers and remaining_flowers[k] - v >= 0 for (k, v) in self.bouquet_hist[i][-1].arrangement.items())
+                    have_flowers = all(k in remaining_flowers and remaining_flowers[k] - v >= 0 for (k, v) in self.bouquet_hist[recip_idx][-1].arrangement.items())
 
                     if have_flowers:
-                        bouquets.append(self.bouquet_hist[i][-1])
+                        bouquets[recip_idx] = self.bouquet_hist[recip_idx][-1]
 
-                        for k, v in self.bouquet_hist[i][-1].arrangement.items():
+                        for k, v in self.bouquet_hist[recip_idx][-1].arrangement.items():
                             remaining_flowers[k] -= v
                             assert remaining_flowers[k] >= 0
 
                         continue
                 else: # not last day so give empty bouquet to save flowers since already know bouquet is correct
-                    # bouquets.append((self.suitor_id, recipient_ids[i], Bouquet({})))  # give empty
-                    bouquets.append((self.suitor_id, self.priority[i], Bouquet({})))  # give empty
+                    bouquets[recip_idx] = (self.suitor_id, recip_id, Bouquet({})) # give empty
 
-                    self.bouquet_hist[i].append(self.bouquet_hist[i][-1]) # pretending we are giving best bouquet
-                    self.arrangement_hist[i].append(self.arrangement_hist[i][-1])
+                    self.bouquet_hist[recip_id].append(self.bouquet_hist[recip_idx][-1]) # pretending we are giving best bouquet
+                    self.arrangement_hist[recip_id].append(self.arrangement_hist[recip_idx][-1])
                     continue
 
-            if self.curr_day > 1 and self.curr_day > int(self.days * 0.3): # giving bouquet using best guess from Linear Regression
+            # if self.curr_day > 1 and self.curr_day >= int(self.days * 0.7): # giving bouquet using best guess from Linear Regression
+            if self.curr_day != 0 and self.curr_day == self.days - 1:
                 # getting all valid flower combinations for each person -- so know best bouquet is valid
                 all_possible_bouquets_arr = self._get_all_possible_bouquets_arr(remaining_flowers)
-                #MIA SAYS UNCOMMENT THIS LINE
-                self._extract_the_dimensions(all_possible_bouquets_arr)
-                all_possible_bouquets_nparr = np.array(all_possible_bouquets_arr)
-                hist_nparr = np.asarray(self.arrangement_hist[i], dtype=int)
+                list_of_lists = self._extract_the_dimensions(all_possible_bouquets_arr)
+                all_possible_bouquets_nparr = np.array(list_of_lists)
+
+                hist_nparr = np.asarray(self.arrangement_hist[recip_idx], dtype=int)
 
                 lin_reg = LinearRegression()
-                lin_reg.fit(hist_nparr, pd.Series(self.score_hist[i]))
+                lin_reg.fit(hist_nparr, pd.Series(self.score_hist[recip_idx]))
 
                 pred_score = lin_reg.predict(all_possible_bouquets_nparr)
 
                 # getting first instance of best score and using that bouquet
                 best_flowers = all_possible_bouquets_arr[np.where(pred_score == max(pred_score))[0][0]]
+                converted_best_flowers = self._extract_the_dimensions([best_flowers])[0]
 
                 # Creating Bouquet object to return
                 if sum(best_flowers) > 0:
@@ -187,7 +226,6 @@ class Suitor(BaseSuitor):
                         if best_flowers[j] > 0:
                             f_obj = rem_flower_key_pairs[self.all_possible_flower_keys[j]]
                             predicted_best[f_obj] = best_flowers[j]
-
                     best_bouquet = Bouquet(predicted_best)
 
                     for k, v in best_bouquet.arrangement.items():
@@ -196,39 +234,41 @@ class Suitor(BaseSuitor):
                 else:
                     best_bouquet = Bouquet(dict())
 
-                # bouquets.append((self.suitor_id, recipient_ids[i], best_bouquet))
-                bouquets.append((self.suitor_id, self.priority[i], best_bouquet))
-                self.arrangement_hist[i].append(best_flowers)
-                self.bouquet_hist[i].append(best_bouquet)
+                bouquets[recip_idx] = (self.suitor_id, recip_id, best_bouquet)
+                
+                self.arrangement_hist[recip_idx].append(converted_best_flowers)
+                self.bouquet_hist[recip_idx].append(best_bouquet)
 
             else: # give random bouquet to get more data for Linear Regression
-                arrangement_len = len(self.arrangement_hist[i]) if self.curr_day != 0 else 1
+                arrangement_len = len(self.arrangement_hist[recip_idx]) if self.curr_day != 0 else 1
                 for _ in range(arrangement_len):
-                    # suitor_id, recipient_id, chosen_bouquet = self._prepare_rand_bouquet(remaining_flowers, recipient_ids[i])
-                    suitor_id, recipient_id, chosen_bouquet = self._prepare_rand_bouquet(remaining_flowers, self.priority[i])
+                    suitor_id, recipient_id, chosen_bouquet = self._prepare_rand_bouquet(remaining_flowers, recip_id)
 
                     b_dict = dict()
                     for k, v in chosen_bouquet.arrangement.items():
                         b_dict[str(k)] = v
                     arrangement = list({**self.all_possible_flowers, **b_dict}.values())
+                    
+                    converted_arrangement = self._extract_the_dimensions([arrangement])[0]
 
-                    if self.curr_day == 0 or arrangement not in self.arrangement_hist[i]:
+                    if self.curr_day == 0 or converted_arrangement not in self.arrangement_hist[recip_idx]:
                         break
 
                 for k, v in chosen_bouquet.arrangement.items():
                     remaining_flowers[k] -= v
                     assert remaining_flowers[k] >= 0
-
-                bouquets.append((suitor_id, recipient_id, chosen_bouquet))
+                bouquets[recip_idx] = (suitor_id, recipient_id, chosen_bouquet)
 
                 if self.curr_day == 0:
-                    self.arrangement_hist.append([arrangement])
+                    self.arrangement_hist.append([converted_arrangement])
                     self.bouquet_hist.append([chosen_bouquet])
                 else:
-                    self.arrangement_hist[i].append(arrangement)
-                    self.bouquet_hist[i].append(chosen_bouquet)
+                    self.arrangement_hist[recip_idx].append(converted_arrangement)
+                    self.bouquet_hist[recip_idx].append(chosen_bouquet)
 
         self.curr_day += 1
+        # time2 = time.time()
+        # print("time2 - time1: {}".format(time2 - time1))
         return bouquets
 
     def zero_score_bouquet(self):
@@ -241,37 +281,7 @@ class Suitor(BaseSuitor):
         """
         :return: a Bouquet for which your scoring function will return 1
         """
-        f1 = Flower(
-            size=FlowerSizes.Large,
-            color=FlowerColors.Blue,
-            type=FlowerTypes.Rose
-        )
-        f2 = Flower(
-            size=FlowerSizes.Small,
-            color=FlowerColors.White,
-            type=FlowerTypes.Chrysanthemum
-        )
-        f3 = Flower(
-            size=FlowerSizes.Medium,
-            color=FlowerColors.Yellow,
-            type=FlowerTypes.Tulip
-        )
-        f4 = Flower(
-            size=FlowerSizes.Medium,
-            color=FlowerColors.Red,
-            type=FlowerTypes.Begonia
-        )
-        f5 = Flower(
-            size=FlowerSizes.Medium,
-            color=FlowerColors.Purple,
-            type=FlowerTypes.Begonia
-        )
-        f6 = Flower(
-            size=FlowerSizes.Medium,
-            color=FlowerColors.Orange,
-            type=FlowerTypes.Begonia
-        )
-        return Bouquet({f1:1,f2:1,f3:1,f4:1,f5:1,f6:1})
+        return self.wanted_bouquet
 
 
     def score_types(self, types: Dict[FlowerTypes, int]):
@@ -279,36 +289,42 @@ class Suitor(BaseSuitor):
         :param types: dictionary of flower types and their associated counts in the bouquet
         :return: A score representing preference of the flower types in the bouquet
         """
-        # if len(types) == 0:
-        #     return 0.0
-        #
-        # avg_types = float(np.mean([x.value for x in flatten_counter(types)]))
-        #return avg_types / (3 * (len(FlowerTypes) - 1))
-        return self.typeWeight*len(types) / len(FlowerTypes)
+        curr_types = np.zeros(len(FlowerTypes))
+        for key,value in types.items():
+            curr_types[key.value]+=value
+        cosine_similarity = self.cosine_similarity(curr_types,self.wanted_types)
+        if cosine_similarity>self.threshold:
+            return self.typeWeight*cosine_similarity
+        else:
+            return 0
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
         :param colors: dictionary of flower colors and their associated counts in the bouquet
         :return: A score representing preference of the flower colors in the bouquet
         """
-        # if len(colors) == 0:
-        #     return 0.0
-        #
-        # avg_colors = float(np.mean([x.value for x in flatten_counter(colors)]))
-        #return avg_colors / (3 * (len(FlowerColors) - 1))
-        return self.colorWeight*len(colors) / len(FlowerColors)
+        curr_colors = np.zeros(len(FlowerColors))
+        for key,value in colors.items():
+            curr_colors[key.value]+=value
+        cosine_similarity = self.cosine_similarity(curr_colors,self.wanted_colors)
+        if cosine_similarity>self.threshold:
+            return self.colorWeight*cosine_similarity
+        else:
+            return 0
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
         :param sizes: dictionary of flower sizes and their associated counts in the bouquet
         :return: A score representing preference of the flower sizes in the bouquet
         """
-        # if len(sizes) == 0:
-        #     return 0
-        #
-        # avg_sizes = float(np.mean([x.value for x in flatten_counter(sizes)]))
-        #return avg_sizes / (3 * (len(FlowerSizes) - 1))
-        return self.sizeWeight*len(sizes) / len(FlowerSizes)
+        curr_sizes = np.zeros(len(FlowerSizes))
+        for key,value in sizes.items():
+            curr_sizes[key.value]+=value
+        cosine_similarity = self.cosine_similarity(curr_sizes,self.wanted_sizes)
+        if cosine_similarity>self.threshold:
+            return self.sizeWeight*cosine_similarity
+        else:
+            return 0
 
     def receive_feedback(self, feedback):
         """
@@ -316,6 +332,9 @@ class Suitor(BaseSuitor):
         :return: nothing
         """
 
+        # first sorting by the how many people got the same rank (least common to most common -- higher priority is given to rankings in which we are the only ones with this ranking)
+        # then sorting by ranking (least to greatest -- ranking of 1 is best)
+        # then sorting by score (greatest to least -- score of 1 is best, score of 0 is worst)
         self.priority = [x[1] for x in sorted(zip(feedback, list(range(len(feedback)))), key = lambda k: (k[0][2], k[0][0], -k[0][1])) if x[0][1] != float('-inf')]
 
         scores = [feedback[i][1] for i in range(len(feedback)) if feedback[i][1] != float('-inf')]

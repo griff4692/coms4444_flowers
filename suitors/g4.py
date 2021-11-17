@@ -53,6 +53,9 @@ class Suitor(BaseSuitor):
                 self.experiments[i] = defaultdict(list)
         self.suitor_id = suitor_id  # Added this line
         self.num_suitors = num_suitors
+        # throw in a testing round after 9 training rounds
+        self.test_interval = 10
+        self.previous_round_is_test = False
 
     @staticmethod
     def _get_combinations(list1, list2):
@@ -345,7 +348,7 @@ class Suitor(BaseSuitor):
             # for recipient in self.recipient_ids:
             #     recipient_ranks = np.asarray(self.experiments[recipient][exp_type])[:, 0]
 
-            # # TODO final round, give the bouquet with the highest score from the previous tryouts\
+            # # TODO final round, give the bouquet with the highest score from the previous tryouts
             # for i in self.recipient_ids:
             #     if len(self.experiments[i]) != 0:
             #         # for each recipient, if we have data for them, get the highest score and return the same combination to them
@@ -388,6 +391,22 @@ class Suitor(BaseSuitor):
         else:  # training phase: conduct controlled experiments
             if len(self.feedback) > 0:  # store past bouquets and scores
                 self.update_results()
+
+            # check if it is time to test
+            if ((self.days - self.remaining_turns)+1) % self.test_interval == 0:
+                self.previous_round_is_test = True
+                return self._testing_round(flower_counts)
+
+            # reorder self.recipient_ids based on the testing round rank
+            if self.previous_round_is_test == True:
+                self.previous_round_is_test = False
+                # save feedback (only ranks) from previous round (testing round)
+                results = self.feedback[-1]
+                testing_ranks = []
+                for recipient_id in self.recipient_ids:
+                    testing_ranks.append((recipient_id, results[recipient_id][0]))
+                testing_ranks.sort(key=lambda x: x[1])
+                self.recipient_ids = [testing_ranks[0] for testing_ranks in testing_ranks]
 
             for ind in range(len(self.recipient_ids)):
                 recipient_id = self.recipient_ids[ind]

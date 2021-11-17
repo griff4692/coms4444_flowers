@@ -161,17 +161,22 @@ class Suitor(BaseSuitor):
         return overlap
 
     def jy_prepare_final_bouquets(self, flower_counts: Dict[Flower, int]):
-        target_bouquets = self.get_target_bouquets() # Each element form of (sid, Bouquet, player_diff)
+
+        # Best bouquet we saw in previous days for each suitor
+        target_bouquets = self.get_target_bouquets()  # Each element form of (sid, Bouquet, player_diff)
+
         # Ensure every suitor gets a bouquet, even if empty. This is required for the simulator.
         ret = {n: (self.suitor_id, n, Bouquet({})) for n in range(self.num_suitors)}
         del ret[self.suitor_id]
 
         bouquet_dicts = []
         for sid, target_bouquet, _ in target_bouquets:
+            # Bouquet similar to target bouquet but constructed from the flowers we have now
             bouquet_dicts.append((sid, self.construct_similar_bouquet(flower_counts, target_bouquet), target_bouquet))
 
+        # Pad bouquets with additional flowers up to the length of the target bouquet
         for sid, bouquet_dict, target_bouquet in bouquet_dicts:
-            while len(bouquet_dict) < len(target_bouquet.arrangement):
+            while sum(bouquet_dict.values()) < len(target_bouquet.arrangement):
                 found_flower = False
                 for flower, count in flower_counts.items():
                     if count is 0:
@@ -188,6 +193,32 @@ class Suitor(BaseSuitor):
                     break
             ret[sid] = (self.suitor_id, sid, Bouquet(bouquet_dict))
 
+        # Use any remaining flowers on people without a bouquet
+        empty_bouquet_suitors = []
+        for suitor_id, (_, _, bouquet) in ret.items():
+            if sum(bouquet.arrangement.values()) == 0:
+                empty_bouquet_suitors.append(suitor_id)
+        remaining_flowers = sum(flower_counts.values())
+        while remaining_flowers > 0:
+            for sid in empty_bouquet_suitors:
+                if remaining_flowers == 0:
+                    break
+                for flower, remaining in flower_counts.items():
+                    if remaining == 0:
+                        continue
+                    remaining_flowers -= 1
+                    flower_counts[flower] -= 1
+
+                    # Update bouquet
+                    _, _, bouquet = ret[sid]
+                    bouquet_dict = bouquet.arrangement
+                    if flower not in bouquet_dict:
+                        bouquet_dict[flower] = 1
+                    else:
+                        bouquet_dict[flower] += 1
+                    ret[sid] = (self.suitor_id, sid, Bouquet(bouquet_dict))
+
+        assert sum(flower_counts.values()) == 0
         return list(ret.values())
 
     @staticmethod

@@ -124,10 +124,13 @@ class Suitor(BaseSuitor):
             color = False
 
             if scoring_function[flow[0].type] > 0:
+                typ = True
                 similarity +=1
             if scoring_function[flow[0].size] > 0:
+                size = True
                 similarity +=1
             if scoring_function[flow[0].color] > 0:
+                color = True
                 similarity +=1
 
             if similarity == target:
@@ -162,16 +165,8 @@ class Suitor(BaseSuitor):
                     break
     
         elif last:
-            #scoring_function = deepcopy(scoring_function)
-            #count = 0
-            #for i in range(3, 1, -1):
-            #    count, bouquet, scoring_function, flowers, copy_flower_counts = self.similarity_score(bouquet, scoring_function, flowers, copy_flower_counts, count, i)
-            #print(len(bouquet))
-
-            #can_best = True
             best_score = float('-inf')
             best_bouquet = None
-            #flower_counts = {}
             index = 0
             for p in prev_bouquets:
                 score = p[-1]
@@ -179,27 +174,21 @@ class Suitor(BaseSuitor):
                 if score >= best_score:
                     best_score = score
                     best_bouquet = b
-            i = 0
             best = defaultdict(int)
             if best_bouquet != None:
                 for bouq in best_bouquet:
                     for flower in bouq.flowers():
-                        i += 1
                         best[flower.type] += 1
                         best[flower.color] += 1
                         best[flower.size] += 1
-            print(copy_flower_counts)
-            print(best)
-            print(i)
-            print(best_bouquet)
+            #print(copy_flower_counts)
+            #print(best)
+            #print(best_bouquet)
             count = 0
             for i in range(3, 0, -1):
                 count, bouquet, best, flowers, copy_flower_counts = self.similarity_score(bouquet, best, flowers, copy_flower_counts, count, i)
-            print(bouquet)
-            print()
-
-            
-            
+            #print(bouquet)
+            #print(len(bouquet))
             #print(copy_flower_counts)
         else:
             scoring_function_copy = deepcopy(scoring_function)

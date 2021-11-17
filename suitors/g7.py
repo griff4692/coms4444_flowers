@@ -203,25 +203,7 @@ class Suitor(BaseSuitor):
 
         self.bouq_Dict[recipient_id].append([chosen_flower_counts, -1, -1, -1])
         return self.suitor_id, recipient_id, chosen_bouquet
-        # best_bouquet_score = max(self.bouq_Dict[recipient_id], key=lambda e: int(e[1]))
-        # best_bouquet = best_bouquet_score[0]
-        # best_score = best_bouquet_score[1]
-        # num_remaining = sum(remaining_flowers.values())
-        # size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
-        # changes = 0
-        # if size > 0:
-        #     chosen_flower_counts = dict()
-        #     for flower, count in best_bouquet.items():
-        #         if (flower in remaining_flowers):
-        #             if remaining_flowers[flower] >= count:
-        #                 chosen_flower_counts[flower] = count
-        #             elif remaining_flowers[flower] > 0:
-        #                 chosen_flower_counts[flower] = remaining_flowers[flower]
-        # else:
-        #     chosen_flower_counts = dict()
-        # chosen_bouquet = Bouquet(chosen_flower_counts)
-
-        # return self.suitor_id, recipient_id, chosen_bouquet
+        
 
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
@@ -239,7 +221,7 @@ class Suitor(BaseSuitor):
         recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
         # First day ~ self.days/2: pass randomly
-        if (self.days_remaining < np.ceil(self.days/2)):
+        if (self.days_remaining < np.ceil(self.days/2) or self.days == 1):
             # Increment days_remaining
             self.days_remaining += 1
             return list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
@@ -325,10 +307,6 @@ class Suitor(BaseSuitor):
     def logistic_func(self, max_val, index, optimum_count, zero_count):
         mid_pt = abs(optimum_count - zero_count) / 2
         k = 1.5
-        """ if (index < optimum_count):
-            index += optimum_count
-        else: # index > opttimum_count
-            index -= optimum_count """
         val = -1 * max_val / (1 + np.exp(-k * (index - mid_pt)))
         val += max_val
         
@@ -336,7 +314,9 @@ class Suitor(BaseSuitor):
     
     def exponential_func(self, max_val, index, optimum_count, zero_count):
         denom = 2 - (abs(optimum_count - zero_count) / 15)
-        val = pow((1 / denom), index) * max_val
+        k = np.sqrt(self.days)
+        #k = np.ceil()
+        val = pow((1 / denom), index * k) * max_val
 
         return val
 
@@ -358,8 +338,8 @@ class Suitor(BaseSuitor):
 
         #dist_frac = max_num_score / abs(zero_count - optimum_count)
         index = abs(count - optimum_count)
-        func_score = self.logistic_func(max_num_score, index, optimum_count, zero_count)
-        #func_score = self.exponential_func(max_num_score, index, optimum_count, zero_count)
+        #func_score = self.logistic_func(max_num_score, index, optimum_count, zero_count)
+        func_score = self.exponential_func(max_num_score, index, optimum_count, zero_count)
         num_score += func_score
 
         return num_score / 3
@@ -396,8 +376,8 @@ class Suitor(BaseSuitor):
             
             #dist_frac = max_type_score / abs(zero_count - optimum_count)
             index = abs(bouq_type_count[i] - optimum_count)
-            func_score = self.logistic_func(max_type_score, index, optimum_count, zero_count)
-            #func_score = self.exponential_func(max_type_score, index, optimum_count, zero_count)
+            #func_score = self.logistic_func(max_type_score, index, optimum_count, zero_count)
+            func_score = self.exponential_func(max_type_score, index, optimum_count, zero_count)
             #type_score += max_type_score - (dist_frac * index)
             type_score += func_score
             
@@ -434,8 +414,8 @@ class Suitor(BaseSuitor):
             
             dist_frac = max_color_score / abs(zero_count - optimum_count)
             index = abs(bouq_color_count[i] - optimum_count)
-            func_score = self.logistic_func(max_color_score, index, optimum_count, zero_count)
-            #func_score = self.exponential_func(max_color_score, index, optimum_count, zero_count)
+            #func_score = self.logistic_func(max_color_score, index, optimum_count, zero_count)
+            func_score = self.exponential_func(max_color_score, index, optimum_count, zero_count)
             #color_score += max_color_score - (dist_frac * index)
             color_score += func_score
             
@@ -472,8 +452,8 @@ class Suitor(BaseSuitor):
             
             #dist_frac = max_size_score / abs(zero_count - optimum_count)
             index = abs(bouq_size_count[i] - optimum_count)
-            func_score = self.logistic_func(max_size_score, index, optimum_count, zero_count)
-            #func_score = self.exponential_func(max_size_score, index, optimum_count, zero_count)
+            #func_score = self.logistic_func(max_size_score, index, optimum_count, zero_count)
+            func_score = self.exponential_func(max_size_score, index, optimum_count, zero_count)
             #size_score += max_size_score - (dist_frac * index)
             size_score += func_score
         

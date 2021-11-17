@@ -1,3 +1,4 @@
+import sys
 import os
 import pandas as pd
 import numpy as np
@@ -34,5 +35,9 @@ def printTeam(scores):
             
 
 if __name__ == '__main__':
-    res = analyzeResults('./results')
+    path = './results'
+    if len(sys.argv) > 1:
+        print('using', sys.argv[1])
+        path = sys.argv[1]
+    res = analyzeResults(path)
     printTeam(res)

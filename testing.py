@@ -4,10 +4,12 @@ import os
 
 def run():
     iters = 3
-    days =  [21, 30, 90, 365] #7, 14, 21, 30, 90, 365]
-    playersOfEach = [1, 2, 3, 4, 10]
+    days =  [7,14,30, 90, 365] #7, 14, 21, 30, 90, 365]
+    playersOfEach = [1, 2, 3, 4] 
     groups = set(range(1,10)) 
     groups.remove(8)
+    groups.remove(6)
+    groups.remove(3)
     path = 'configPath'
     for d in days:
         for j in playersOfEach:

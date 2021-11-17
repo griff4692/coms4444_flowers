@@ -60,6 +60,9 @@ class Suitor(BaseSuitor):
         self.exploration_alpha_decay = self.exploration_alpha / days
         self.num_suitors = num_suitors - 1
 
+        self.mean_distance, self.std_distance = self.get_mean_and_std(num_suitors, days)
+
+        self.best_records = defaultdict(list)
         # self.num_flowers_in_bouquet = self.get_random_num_flowers(seed=2)
         self.num_flowers_in_bouquet = 9
         self.our_favorite_bouquet = self.get_random_bouquet(num_flowers = self.num_flowers_in_bouquet)
@@ -114,6 +117,68 @@ class Suitor(BaseSuitor):
         to_return[items_to_split[-1]] = max_number - running_sum
         return to_return
 
+    def get_mean_and_std(self, num_suitors, days):
+        total = num_suitors * days
+        thresholds = {4: (4, 1),
+                     28: (4, 2),
+                     56: (1, 1.5),
+                     120: (3, 1.5),
+                     360: (3, 0.5),
+                     8: (3, 1.5),
+                     112: (3, 1),
+                     240: (4, 0.5),
+                     720: (2, 0.5),
+                     30: (2, 0.5),
+                     210: (2, 0.5),
+                     420: (1, 0.5),
+                     900: (3, 0.3),
+                     2700: (1, 0.3),
+                     90: (3, 0.5),
+                     630: (1, 0.5),
+                     1260: (1, 1),
+                     3500: (1, 0.25)}
+        sorted_sums = sorted([key for key in thresholds])
+        i = 0
+        while total > sorted_sums[i] and i < len(sorted_sums):
+            i+=1
+        if i == len(sorted_sums):
+            res = thresholds[sorted_sums[i-1]]
+        else:
+            res = thresholds[sorted_sums[i]]
+        return res
+
+    def similarity_score(self, bouquet, scoring_function, flowers, copy_flower_counts, count, target):
+        for flow in flowers:
+            if count >= 12:
+                return count, bouquet, scoring_function, flowers, copy_flower_counts
+            similarity = 0
+            typ = False
+            size = False
+            color = False
+
+            if scoring_function[flow[0].type] > 0:
+                typ = True
+                similarity +=1
+            if scoring_function[flow[0].size] > 0:
+                size = True
+                similarity +=1
+            if scoring_function[flow[0].color] > 0:
+                color = True
+                similarity +=1
+
+            if similarity == target:
+                if copy_flower_counts[str(flow[0])] > 0:
+                    count += 1
+                    if typ:
+                        scoring_function[flow[0].type] -= 1
+                    if size:
+                        scoring_function[flow[0].size] -= 1
+                    if color:
+                        scoring_function[flow[0].color] -= 1
+                    bouquet[flow[0]] += 1
+                    copy_flower_counts[str(flow[0])] -= 1
+        return count, bouquet, scoring_function, flowers, copy_flower_counts
+    
     def prepare_bouquet_for_group(self, group_id, flowers, copy_flower_counts, rand=False, last=False):
         bouquet = defaultdict(int)
         bouquet_info = defaultdict(int)
@@ -130,122 +195,33 @@ class Suitor(BaseSuitor):
                     bouquet[key] += 1
                     copy_flower_counts[str(key)] -= 1
                     break
-        
+    
         elif last:
-            #can_best = True
             best_score = float('-inf')
             best_bouquet = None
-            #flower_counts = {}
             index = 0
             for p in prev_bouquets:
-                score = p[2]
-                b = p[0]
+                score = p[-1]
+                b = p[:-2]
                 if score >= best_score:
                     best_score = score
                     best_bouquet = b
+            best = defaultdict(int)
             if best_bouquet != None:
-                for flower in best_bouquet.flowers():
-                    if str(flower) in copy_flower_counts:
-                        if copy_flower_counts[str(flower)] > 0:
-                            bouquet[flower] += 1
-                            copy_flower_counts[str(flower)] -= 1
-                            continue
-                    one = 0
-                    index = 0
-                    picked = False
-                    for flow in flowers:
-                        similarity = 0
-                        if flow[0].type == flower.type:
-                            similarity +=1
-                        if flow[0].size == flower.size:
-                            similarity +=1
-                        if flow[0].color == flower.color:
-                            similarity +=1
-                        if similarity == 2:
-                            if copy_flower_counts[str(flow[0])] > 0:
-                                bouquet[flow[0]] += 1
-                                copy_flower_counts[str(flow[0])] -= 1
-                                picked = True
-                                break
-                        if similarity == 1:
-                            if copy_flower_counts[str(flow[0])] > 0:
-                                one = index
-                        
-                        index += 1
-
-                    if not picked:
-                        flow = flowers[one][0]
-                        bouquet[flow] += 1
-                        copy_flower_counts[str(flow)] -= 1
-                """
-                flows = []
-                for flower in flowers:
-                    for i in range(flower[1]):
-                        flows.append(flower[0])
-                print(len(flows))
-                types = defaultdict(int, best_bouquet.types)
-                sizes = defaultdict(int, best_bouquet.sizes)
-                colors = defaultdict(int, best_bouquet.colors)
-                combos = combinations(flows, len(best_bouquet))
-                max_bouquet = None
-                min_dist = float('inf')
-                index = 0
-                for c in combos:
-                    #print(index)
-                    index +=1
-                    distance = 0
-                    b = Bouquet(Counter(c))
-                    for size in FlowerSizes:
-                        if size not in b.sizes:
-                            distance += sizes[size]
-                        else:
-                            distance += abs(sizes[size] - b.sizes[size])
-                    for type in FlowerTypes:
-                        if type not in b.types:
-                            distance += types[type]
-                        else:
-                            distance += abs(types[type] - b.types[type])
-                    for color in FlowerColors:
-                        if color not in b.colors:
-                            distance += colors[color]
-                        else:
-                            distance += abs(colors[color] - b.colors[color])
-                    if distance < min_dist:
-                        max_bouquet = c
-                        min_dist = distance
-                for f in max_bouquet:
-                    bouquet[f] += 1
-                    copy_flower_counts[str(f)] -= 1
-                can_best = True
-            else:
-                can_best = False
-            if not can_best:
-                bouquet = defaultdict(int)
-                for flower in flower_counts:
-                    copy_flower_counts[flower] += flower_counts[flower]
-                for _ in range(count):
-                    best_flower = None
-                    best_score = -10000
-                    for item in flowers:
-                        key,value = item
-                        score = 0
-                        if copy_flower_counts[str(key)] <= 0:
-                            continue
-                        
-                        score += scoring_function[key.type] - bouquet_info[key.type]
-                        score += scoring_function[key.color] - bouquet_info[key.color]
-                        score += scoring_function[key.size] - bouquet_info[key.size]
-
-                        if score > best_score:
-                            best_score = score
-                            best_flower = key
-                    
-                    if best_flower == None:
-                        break
-                    else:
-                        bouquet[best_flower] += 1
-                        copy_flower_counts[str(best_flower)] -= 1
-                        """
+                for bouq in best_bouquet:
+                    for flower in bouq.flowers():
+                        best[flower.type] += 1
+                        best[flower.color] += 1
+                        best[flower.size] += 1
+            #print(copy_flower_counts)
+            #print(best)
+            #print(best_bouquet)
+            count = 0
+            for i in range(3, 0, -1):
+                count, bouquet, best, flowers, copy_flower_counts = self.similarity_score(bouquet, best, flowers, copy_flower_counts, count, i)
+            #print(bouquet)
+            #print(len(bouquet))
+            #print(copy_flower_counts)
         else:
             scoring_function_copy = deepcopy(scoring_function)
             max_flowers_to_give = min(sum(scoring_function.values()) // 3 + int((self.turn / self.days) * self.total_number_flowers // 4), self.max_flowers_to_give)
@@ -321,6 +297,7 @@ class Suitor(BaseSuitor):
 
         if self.turn > 1:
             self.rank_groups()
+            # print(self.other_suitors)
 
         for o_id in self.other_suitors:
             r = random.uniform(0,1)
@@ -373,10 +350,19 @@ class Suitor(BaseSuitor):
             guess = guessed_counts[unit] if unit in guessed_counts else 0
             target = target_counts[unit] if unit in target_counts else 0
             d += max(target - guess, 0)
-        # print("distance calculation")
-        # print(unit, d)
-        return 2*d
-        # return abs(12 - sum(guessed_counts.values()))
+        return d
+
+
+    def distance_function(self, weight, distance):
+        # return max((weight - (distance) * 0.05), 0)
+        from scipy.stats import norm
+        mean_distance = self.mean_distance
+        std_distance = self.std_distance
+        distance = mean_distance if distance < mean_distance else distance
+        max_score = norm.pdf(mean_distance, mean_distance, std_distance)
+        given_score = norm.pdf(distance, mean_distance, std_distance)
+        factor = given_score / (max_score)
+        return weight * factor
 
     def score_attribute(self, attribute_name, guess):
         if sum(guess.values()) == 0:
@@ -389,7 +375,7 @@ class Suitor(BaseSuitor):
 
         else:
             # return weight / distance
-            return max((weight - (distance) * 0.05), 0)
+            return self.distance_function(weight, distance)
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
@@ -423,12 +409,17 @@ class Suitor(BaseSuitor):
                 self.scoring_parameters[o_id][flower.type] += 1
                 self.scoring_parameters[o_id][flower.color] += 1
         
+        if self.turn >= self.days:
+            return
+        
         total_flowers_given = sum(self.scoring_parameters[o_id].values()) // 3
         if total_flowers_given == 0:
             return
         parameters = ["size","color","type"]
 
+        tries = 0
         while True:
+            tries += 1
             to_change = random.choice(parameters)
 
             if to_change == "size":
@@ -442,15 +433,23 @@ class Suitor(BaseSuitor):
             
             if self.scoring_parameters[o_id][to_increase] < total_flowers_given:
                 break
+
+            if tries > 20:
+                return
         
+        tries = 0
         to_decrease = None
         while to_decrease == None:
             # print("decreasing")
+            tries += 1
             to_decrease = random.choice(params)
             if to_decrease == to_increase or self.scoring_parameters[o_id][to_decrease] == 0:
                 to_decrease = None
             else:
                 break
+
+            if tries > 20:
+                return
         
         self.scoring_parameters[o_id][to_increase] += 1
         self.scoring_parameters[o_id][to_decrease] -= 1
@@ -480,10 +479,34 @@ class Suitor(BaseSuitor):
 
     def rank_groups(self):
         g_rank_s = defaultdict(int)
+        # print("rgiven:", self.bouquets_given)
 
         for o_id in self.other_suitors:
             rank = self.bouquets_given[o_id][-1][1]
             score = self.bouquets_given[o_id][-1][2]
-            g_rank_s[o_id] = score/rank
+
+            if o_id in self.best_records:
+                if self.best_records[o_id][0]>rank:
+                    self.best_records[o_id][0] = rank
+                    self.best_records[o_id][1] = score
+                elif self.best_records[o_id][0]==rank and self.best_records[o_id][1]>score:
+                    self.best_records[o_id][1] = score
+            else:
+                self.best_records[o_id] = [rank, score]
+
+            rank = self.best_records[o_id][0]
+            score = self.best_records[o_id][1]
+
+            # print(o_id, rank, score)
+            g_rank_s[o_id] = -2*rank
+
+            if self.turn != self.days:
+                g_rank_s[o_id] -= score
+                if rank == 1 and score == 0:
+                    g_rank_s[o_id] -= random.random()
+            else:
+                g_rank_s[o_id] += score
+
+            # g_rank_s[o_id] = score/rank
 
         self.other_suitors = [k for k, v in sorted(g_rank_s.items(), key=lambda x: x[1], reverse=True)]

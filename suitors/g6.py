@@ -6,7 +6,6 @@ import math
 import numpy as np
 import pandas as pd
 import random
-import pdb
 from sklearn.linear_model import LinearRegression
 
 from constants import MAX_BOUQUET_SIZE
@@ -229,6 +228,7 @@ class Suitor(BaseSuitor):
                     self.bouquet_hist[i].append(chosen_bouquet)
 
         self.curr_day += 1
+        pdb.set_trace()
         return bouquets
 
     def zero_score_bouquet(self):

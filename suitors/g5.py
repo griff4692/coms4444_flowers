@@ -105,7 +105,9 @@ class Suitor(BaseSuitor):
             total_score = 0
             for bouquet, score, rank in self.bouquet_data_points[sid]:
                 total_score += score
-            mean = total_score / len(self.bouquet_data_points[sid])
+            mean = 0
+            if len(self.bouquet_data_points[sid]) is not 0:
+                mean = total_score / len(self.bouquet_data_points[sid])
             player_diff = self.bouquet_data_points[sid][-1][1] - mean
             target_bouquets.append((sid, self.bouquet_data_points[sid][-1][0], player_diff))
         target_bouquets.sort(key=lambda x : x[2], reverse=True)

@@ -1,7 +1,9 @@
 argparse
 numpy
 pandas
+p_tqdm
 remi
 scipy
 scikit-learn
 tqdm
+regex

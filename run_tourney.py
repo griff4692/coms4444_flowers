@@ -1,9 +1,11 @@
 import json
 import os
+import regex as re
 
 import argparse
 import pandas as pd
 from tqdm import tqdm
+from p_tqdm import p_uimap
 
 from tourney_scripts import GROUPS, DAYS
 from main import FlowerMarriageGame
@@ -18,9 +20,33 @@ class RunArgs:
         self.p_from_config = False
 
 
+def run_experiment(run):
+    run_id = re.sub(r'\W+', '_', json.dumps(run)).strip('_')
+    out_fn = os.path.join('results', f'{run_id}.csv')
+    if os.path.exists(out_fn) and not tourney_args.overwrite:
+        print(f'Already played {run_id}')
+        return 0
+    run_args = RunArgs()
+    run_args.run_id = run_id
+    run_args.log_file = f'logs/{run_id}.txt'
+    run_args.random_state = run['random_state']
+    run_args.p = run['p']
+    run_args.d = run['d']
+    suitor_names = []
+    for group in GROUPS:
+        suitor_names += [group] * run[group]
+    assert len(suitor_names) == run_args.p
+    game = FlowerMarriageGame(run_args, suitor_names=suitor_names)
+    game.play()
+    output_df = game.generate_output_df()
+    output_df.to_csv(out_fn, index=False)
+    return 1
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Tournament-Level Settings')
     parser.add_argument('-overwrite', default=False, action='store_true')
+    parser.add_argument('--cpu_frac', default=0.33, action='store_true')
     parser.add_argument('--d_filter', default=None, type=int, choices=DAYS)
     tourney_args = parser.parse_args()
     os.makedirs('logs', exist_ok=True)
@@ -31,23 +57,26 @@ if __name__ == '__main__':
         assert len(tourney_script) > 0
     runs = tourney_script.to_dict('records')
 
-    for run in tqdm(runs, total=len(runs)):
-        run_id = abs(hash(json.dumps(run)))
-        out_fn = os.path.join('results', f'{run_id}.csv')
-        if os.path.exists(out_fn) and not tourney_args.overwrite:
-            print(f'Already played {run_id}')
-            continue
-        run_args = RunArgs()
-        run_args.run_id = run_id
-        run_args.log_file = f'logs/{run_id}.txt'
-        run_args.random_state = run['random_state']
-        run_args.p = run['p']
-        run_args.d = run['d']
-        suitor_names = []
-        for group in GROUPS:
-            suitor_names += [group] * run[group]
-        assert len(suitor_names) == run_args.p
-        game = FlowerMarriageGame(run_args, suitor_names=suitor_names)
-        game.play()
-        output_df = game.generate_output_df()
-        output_df.to_csv(out_fn, index=False)
+    statuses = list(p_uimap(run_experiment, runs))
+    print(f'{sum(statuses)}/{len(statuses)} experiments run.')
+
+    # for run in tqdm(runs, total=len(runs)):
+    #     run_id = re.sub(r'\W+', '_', json.dumps(run)).strip('_')
+    #     out_fn = os.path.join('results', f'{run_id}.csv')
+    #     if os.path.exists(out_fn) and not tourney_args.overwrite:
+    #         print(f'Already played {run_id}')
+    #         continue
+    #     run_args = RunArgs()
+    #     run_args.run_id = run_id
+    #     run_args.log_file = f'logs/{run_id}.txt'
+    #     run_args.random_state = run['random_state']
+    #     run_args.p = run['p']
+    #     run_args.d = run['d']
+    #     suitor_names = []
+    #     for group in GROUPS:
+    #         suitor_names += [group] * run[group]
+    #     assert len(suitor_names) == run_args.p
+    #     game = FlowerMarriageGame(run_args, suitor_names=suitor_names)
+    #     game.play()
+    #     output_df = game.generate_output_df()
+    #     output_df.to_csv(out_fn, index=False)

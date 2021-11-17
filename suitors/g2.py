@@ -132,6 +132,7 @@ class Suitor(BaseSuitor):
 
             if similarity == target:
                 if copy_flower_counts[str(flow[0])] > 0:
+                    print(target)
                     count += 1
                     if typ:
                         scoring_function[flow[0].type] -= 1
@@ -178,17 +179,22 @@ class Suitor(BaseSuitor):
                 if score >= best_score:
                     best_score = score
                     best_bouquet = b
-            
+            i = 0
             best = defaultdict(int)
             if best_bouquet != None:
                 for bouq in best_bouquet:
                     for flower in bouq.flowers():
+                        i += 1
                         best[flower.type] += 1
                         best[flower.color] += 1
                         best[flower.size] += 1
+            print(best)
+            print(i)
+            print(best_bouquet)
             count = 0
             for i in range(3, 0, -1):
                 count, bouquet, best, flowers, copy_flower_counts = self.similarity_score(bouquet, best, flowers, copy_flower_counts, count, i)
+            print(len(bouquet))
             
             
             #print(copy_flower_counts)

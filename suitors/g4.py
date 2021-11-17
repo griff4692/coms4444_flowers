@@ -205,8 +205,6 @@ class Suitor(BaseSuitor):
         for i in range(idx, len(ranks)):
             results.append((self.suitor_id, ranks[i][0], Bouquet({})))
         
-        print('AWOOOOOOOOOOOOOOOOO')
-        print(results)
         return results
 
     def calculate_flower_scores(self, flower_counts, color_rank, size_rank, type_rank):

@@ -13,8 +13,8 @@ from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes, get
 from utils import flatten_counter
 from suitors.base import BaseSuitor
 
-import time
-import pdb
+# import time
+# import pdb
 
 
 
@@ -143,7 +143,6 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
-        time1 = time.time()
         remaining_flowers = flower_counts.copy()
         num_recips = len(self.priority)
 
@@ -242,11 +241,6 @@ class Suitor(BaseSuitor):
                     self.bouquet_hist[recip_idx].append(chosen_bouquet)
 
         self.curr_day += 1
-        time2 = time.time()
-        assert(time2 - time1 < 1)
-        if self.curr_day > 1 and self.curr_day >= int(self.days * 0.7):
-            print("time2 - time1: {}".format(time2 - time1))
-            pdb.set_trace()
         return bouquets
 
     def zero_score_bouquet(self):

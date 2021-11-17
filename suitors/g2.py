@@ -60,6 +60,8 @@ class Suitor(BaseSuitor):
         self.exploration_alpha_decay = self.exploration_alpha / days
         self.num_suitors = num_suitors - 1
 
+        self.mean_distance, self.std_distance = self.get_mean_and_std(num_suitors, days)
+
         # self.num_flowers_in_bouquet = self.get_random_num_flowers(seed=2)
         self.num_flowers_in_bouquet = 9
         self.our_favorite_bouquet = self.get_random_bouquet(num_flowers = self.num_flowers_in_bouquet)
@@ -113,7 +115,37 @@ class Suitor(BaseSuitor):
             to_return[item] = num_of_item
         to_return[items_to_split[-1]] = max_number - running_sum
         return to_return
-    
+
+    def get_mean_and_std(self, num_suitors, days):
+        total = num_suitors * days
+        thresholds = {4: (4, 1),
+                     28: (4, 2),
+                     56: (1, 1.5),
+                     120: (3, 1.5),
+                     360: (3, 0.5),
+                     8: (3, 1.5),
+                     112: (3, 1),
+                     240: (4, 0.5),
+                     720: (2, 0.5),
+                     30: (2, 0.5),
+                     210: (2, 0.5),
+                     420: (1, 0.5),
+                     900: (3, 0.5),
+                     2700: (1, 0.3),
+                     90: (3, 0.5),
+                     630: (1, 0.5),
+                     1260: (1, 1),
+                     3500: (1, 0.25)}
+        sorted_sums = sorted([key for key in thresholds])
+        i = 0
+        while total > sorted_sums[i] and i < len(sorted_sums):
+            i+=1
+        if i == len(sorted_sums):
+            res = thresholds[sorted_sums[i-1]]
+        else:
+            res = thresholds[sorted_sums[i]]
+        return res
+
     def similarity_score(self, bouquet, scoring_function, flowers, copy_flower_counts, count, target):
         for flow in flowers:
             if count >= 12:
@@ -135,7 +167,6 @@ class Suitor(BaseSuitor):
 
             if similarity == target:
                 if copy_flower_counts[str(flow[0])] > 0:
-                    print(target)
                     count += 1
                     if typ:
                         scoring_function[flow[0].type] -= 1
@@ -325,8 +356,9 @@ class Suitor(BaseSuitor):
     def distance_function(self, weight, distance):
         # return max((weight - (distance) * 0.05), 0)
         from scipy.stats import norm
-        mean_distance = 2
-        std_distance = 2
+        mean_distance = self.mean_distance
+        std_distance = self.std_distance
+        distance = mean_distance if distance < mean_distance else distance
         max_score = norm.pdf(mean_distance, mean_distance, std_distance)
         given_score = norm.pdf(distance, mean_distance, std_distance)
         factor = given_score / (max_score)

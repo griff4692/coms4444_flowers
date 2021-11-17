@@ -14,7 +14,7 @@ class TimeoutException(Exception):
         return repr(self.value)
 
 
-def prepare_empty_bouquets(suitor):
+def prepare_empty_bouquets(suitor, current_bouquet=None):
     all_ids = np.arange(suitor.get_num_suitors())
     recipient_ids = all_ids[all_ids != suitor.suitor_id]
     return [(suitor.suitor_id, recipient_id, Bouquet({})) for recipient_id in recipient_ids]
@@ -28,6 +28,7 @@ def break_after(seconds=1, fallback_func=None):
         def wrapper(*args, **kwargs):
             signal.signal(signal.SIGALRM, timeout_handler)
             signal.alarm(seconds)
+            time_out = False
             try:
                 res = function(*args, **kwargs)
                 signal.alarm(0)  # Clear alarm
@@ -35,13 +36,26 @@ def break_after(seconds=1, fallback_func=None):
             except TimeoutException:
                 logger = logging.getLogger(__name__)
                 suitor = args[0]
+                time_out = True
+            except Exception:
+                logger = logging.getLogger(__name__)
+                suitor = args[0]
             if fallback_func:
-                timeout_str = f'{suitor.name}_{suitor.suitor_id} took too long.  ' \
-                              f'Preparing empty bouquets for the other (disappointed) suitors.'
-                logger.error(timeout_str)
+                if time_out:
+                    timeout_str = f'{suitor.name}_{suitor.suitor_id} took too long.  ' \
+                                  f'Preparing empty bouquets for the other (disappointed) suitors.'
+                    logger.error(timeout_str)
+                else:
+                    timeout_str = f'{suitor.name}_{suitor.suitor_id} had a code error.  ' \
+                                  f'Preparing empty bouquets for the other (disappointed) suitors.'
+                    logger.error(timeout_str)
                 return fallback_func(*args)
-            timeout_str = f'{suitor.name}_{suitor.suitor_id} took too long. Skipping'
-            logger.error(timeout_str)
+            else:
+                if time_out:
+                    timeout_str = f'{suitor.name}_{suitor.suitor_id} took too long. Skipping.'
+                else:
+                    timeout_str = f'{suitor.name}_{suitor.suitor_id} had a code error.  Skipping.'
+                logger.error(timeout_str)
             return
         return wrapper
     return function

@@ -3,6 +3,7 @@ from typing import Dict
 
 import numpy as np
 from numpy.core.fromnumeric import size
+import random
 
 
 from constants import MAX_BOUQUET_SIZE
@@ -23,15 +24,15 @@ class Suitor(BaseSuitor):
         self.weights = {}
 
         #self.num_pref = np.random.randint(1,12)
-        self.num_pref = np.random.randint(1,6)
+        self.num_pref = random.randint(1,6)
         self.type_pref = [] # 4 types
         self.color_pref = [] # 6 colors
         self.size_pref = [] # 3 sizes
 
         for i in range(self.num_pref):
-            self.type_pref.append(np.random.randint(0, 3))
-            self.color_pref.append(np.random.randint(0, 5))
-            self.size_pref.append(np.random.randint(0, 2))
+            self.type_pref.append(random.randint(0, 3))
+            self.color_pref.append(random.randint(0, 5))
+            self.size_pref.append(random.randint(0, 2))
 
         """
             player: 
@@ -110,7 +111,7 @@ class Suitor(BaseSuitor):
                 maximum = self.weights[recipient_id]['number'][i]
                 size = i
         #size = np.argmax(self.weights[recipient_id]['number'])
-        flip = np.random.randint(0, 1)
+        flip = random.randint(0, 1)
         if flip == 0:
             size -= 1
         else:

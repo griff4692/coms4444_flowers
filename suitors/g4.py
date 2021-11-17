@@ -35,10 +35,10 @@ class Suitor(BaseSuitor):
         self.last_bouquet = None  # bouquet we gave out from the last turn
         self.control_group_assignments = self._assign_control_groups()
         round_approx = days * num_suitors
-        fix1y = 45
-        slope = (5 - fix1y) / (365 * 6 - (3*6)) 
+        fix1y = 80 
+        slope = (30 - fix1y) / (365 * 6 - (3*6)) 
         calculatedPoint = math.ceil(slope * (round_approx - 3*6) + fix1y)
-        bouquets_to_generate = max(calculatedPoint, 5) 
+        bouquets_to_generate = max(calculatedPoint, 30) 
         print(f'g4: generating {bouquets_to_generate}')
         self.best_arrangement = [self.generate_random_bouquet() for _ in range(bouquets_to_generate)]
         self.sizev, self.colorv, self.typev = [], [], []
@@ -66,7 +66,7 @@ class Suitor(BaseSuitor):
         )
 
     def generate_random_bouquet(self):
-        return [self.generate_random_flower() for _ in range(randint(1, MAX_BOUQUET_SIZE))]
+        return [self.generate_random_flower() for _ in range(randint(4, MAX_BOUQUET_SIZE+1))]
 
     def get_bouquet_score_vectors(self, bouquet_vect):
         size_vec = [0] * len(FlowerSizes)
@@ -105,10 +105,9 @@ class Suitor(BaseSuitor):
             ) + 1
         ) 
         amp_dist = self.compute_euc_dist(v1,v2)
-        if amp_dist > 1:
-            amp_dist = amp_dist ** 3
+        amp_dist = amp_dist ** 2
         dist =  1 / (amp_dist + 1)
-        print(dist)
+        dist = ((2*dist - 1) ** 3 + 1) / 2
         return dist if dist > THRESHOLD else 0
 
     def _assign_control_groups(self):
@@ -678,6 +677,10 @@ class Suitor(BaseSuitor):
 
         for key, value in types.items():
             vector[key.value] = value
+        
+        if sum(vector) == 0:
+            return 0
+
         res = [self.compute_distance_heuristic(vector, x) for x in self.typev]
         return max(res) * 1.0/3.0
 
@@ -687,9 +690,14 @@ class Suitor(BaseSuitor):
         :return: A score representing preference of the flower colors in the bouquet
         """
         vector = [0] * len(FlowerColors)
-
+        
         for key, value in colors.items():
             vector[key.value] = value
+        
+        if sum(vector) == 0:
+            return 0
+
+
         res = [self.compute_distance_heuristic(vector, x) for x in self.colorv]
         return max(res) * 1.0/3.0
 
@@ -702,6 +710,10 @@ class Suitor(BaseSuitor):
 
         for key, value in sizes.items():
             vector[key.value] = value
+            
+        if sum(vector) == 0:
+            return 0
+
         res = [self.compute_distance_heuristic(vector, x) for x in self.sizev]
         return max(res) * 1.0/3.0
 
@@ -711,6 +723,3 @@ class Suitor(BaseSuitor):
         :return: nothing
         """
         self.feedback.append(feedback)
-        print('Feedback added')
-        print(self.feedback)
-        print(self.feedback[-1])

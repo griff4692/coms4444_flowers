@@ -22,6 +22,8 @@ def get_default_args():
 
 if __name__ == '__main__':
     OVERWRITE = True
+    os.makedirs('logs', exist_ok=True)
+    os.makedirs('results', exist_ok=True)
     tourney_script = pd.read_csv('tourney_configs.csv')
     runs = tourney_script.to_dict('records')
 

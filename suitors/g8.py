@@ -33,20 +33,19 @@ class Suitor(BaseSuitor):
             for n in range(1, 13):
                 self.alloptions = self.alloptions + list(itertools.combinations_with_replacement([0,1,2,3,4,5], n))
             l = len(self.alloptions)
-            ones = math.ceil((1/(self.num_suitors-1))*l)
+            ones = math.ceil((1/(self.num_suitors+1))*l)
             zeros = l - ones
             mask = [True for n in range(ones)] + [False for n in range(zeros)]
             random.shuffle(mask)
             self.alloptions = list(itertools.compress(self.alloptions, mask))
-            print(self.alloptions)
             self.null = 3 # so its ignored by scoring methods
         self.given = {} # dictionary to save the bouquets we gave + their scores
         all_ids = np.arange(self.num_suitors)
         self.recipient_ids = all_ids[all_ids != self.suitor_id]
         for suitor in self.recipient_ids:
             self.given[suitor] = [] # list for each suitor, will be list of lists with [bouquet, score]
-        self.days_left = days
         self.day_number = 0
+        self.random_tested_suitors = []
         self.initalize_controlled_strat()
         self.suitors_to_test = list(self.recipient_ids)
         # Dictionary to remember if we receive score > 0.95 and rank 1 for any bouquet given
@@ -96,44 +95,79 @@ class Suitor(BaseSuitor):
             chosen_bouquets[suitor] = {}
             suitor_bouquet_counts[suitor] = 0
 
-        # Look at saved high-scoring bouquets and see if you can make the same bouquet
+        remaining_flowers_flattened = flatten_counter(remaining_flowers)
+
+        # Look at saved high-scoring bouquets and see if you can make the exact same bouquet
+        suitors_with_perfect_bouquets = []
         for suitor_data in self.priority["saved_set"]:
             i = 0
             while(i < suitor_data[1]):
                 # Get saved bouquet and get its score per attr
                 bouquet = self.remember_high_scores[suitor_data[0]][i][0]
-                #print("in best_bouquet")
-                #print(bouquet)
-                score_attr = self.get_score_per_attr(bouquet, "bouquet")
-                #print("in best_bouquet, returned from get_score_per_attr")
-                all_possible_bouquets = self.get_all_possible_bouquets_size_6(remaining_flowers)
-                # all_possible_bouquets is a list of tuples
-                #print(all_possible_bouquets)
-                found = 0
-                for possible_bouquet in all_possible_bouquets:
-                    #print(possible_bouquet)
-                    score_attr_possible_bouquet = self.get_score_per_attr(possible_bouquet, "tuple")
-                    if(score_attr_possible_bouquet == None):
-                        continue
-                    if(score_attr == score_attr_possible_bouquet): # found an exact match
-                        found = 1
+                new_bouquet = []
+                not_possible = 0
+                for flower in bouquet.flowers():
+                    if flower in remaining_flowers_flattened:
+                        new_bouquet.append(flower)
+                        remaining_flowers_flattened.remove(flower)
+                    else:
+                        # we don't have this flower and can't make exact same bouquet
+                        remaining_flowers_flattened = remaining_flowers_flattened + new_bouquet
+                        not_possible = 1
                         break
-                # update remaining_flowers
-                if found:
-                    d1 = Counter(bouquet.flowers())
-                    d2 = Counter(possible_bouquet)
-                    d3 = d1 - d2
-                    remaining_flowers = dict(d3)
-                    chosen_bouquets[suitor_data[0]] = dict(d2)
-                    suitor_bouquet_counts[suitor_data[0]] = len(possible_bouquet)
+
+                if not_possible == 0:
+                    # Victory! Found!
+                    chosen_bouquets[suitor_data[0]] = dict(Counter(new_bouquet))
+                    suitor_bouquet_counts[suitor_data[0]] = len(new_bouquet)
+                    suitors_with_perfect_bouquets.append(suitor_data[0])
                     break
 
                 i = i + 1
 
 
-        flowers_in_market = flatten_counter(remaining_flowers)
+        flowers_in_market = remaining_flowers_flattened
+        # Makes sure we end up using all flowers even if our personal bouquet size is small
+        num_flowers_remaining = len(flowers_in_market)
+        num_suitors_remaining = self.num_suitors - len(suitors_with_perfect_bouquets) - 1
+        if num_suitors_remaining == 0:
+            return chosen_bouquets
+        max_flowers_for_each_suitor = math.ceil(num_flowers_remaining / num_suitors_remaining)
+        bouquet_size = max(max_flowers_for_each_suitor, self.personal_max_bouquet_size)
 
-        for flower in flowers_in_market:
+        for suitor in self.priority["rank"]:
+            if suitor not in suitors_with_perfect_bouquets:
+                flowers_list = []
+                for flower in flowers_in_market:
+                    color = flower.color
+                    type = flower.type
+                    size = flower.size
+                    color_score = scores_per_player[suitor]["color"][color.value]
+                    type_score = scores_per_player[suitor]["type"][type.value]
+                    size_score = scores_per_player[suitor]["size"][size.value]
+                    total_score = color_score + type_score + size_score
+                    flowers_list.append((flower, total_score))
+                flowers_list.sort(key=lambda tup: tup[1])
+                flowers_list.reverse()
+                if len(flowers_in_market) > bouquet_size:
+                    for tuple in flowers_list[:bouquet_size]:
+                        flower = tuple[0]
+                        if flower in chosen_bouquets[suitor]:
+                            chosen_bouquets[suitor][flower] = chosen_bouquets[suitor][flower] + 1
+                        else:
+                            chosen_bouquets[suitor][flower] = 1
+                        flowers_in_market.remove(flower)
+                else:
+                    for tuple in flowers_list:
+                        flower = tuple[0]
+                        if flower in chosen_bouquets[suitor]:
+                            chosen_bouquets[suitor][flower] = chosen_bouquets[suitor][flower] + 1
+                        else:
+                            chosen_bouquets[suitor][flower] = 1
+                        flowers_in_market.remove(flower)
+
+        # OLD GIVING
+        """for flower in flowers_in_market:
             color = flower.color
             type = flower.type
             size = flower.size
@@ -153,7 +187,7 @@ class Suitor(BaseSuitor):
                 chosen_bouquets[suitor_getting_flower][flower] = chosen_bouquets[suitor_getting_flower][flower]+1
             else:
                 chosen_bouquets[suitor_getting_flower][flower] = 1
-            suitor_bouquet_counts[suitor_getting_flower] = suitor_bouquet_counts[suitor_getting_flower] + 1
+            suitor_bouquet_counts[suitor_getting_flower] = suitor_bouquet_counts[suitor_getting_flower] + 1"""
 
         return chosen_bouquets
 
@@ -184,7 +218,6 @@ class Suitor(BaseSuitor):
             preferences["size"] = [float(i) / (max(preferences["size"]) + 1e-6) for i in preferences["size"]]
             preferences["type"] = [float(i) / (max(preferences["type"]) + 1e-6) for i in preferences["type"]]
             scores_by_attribute[suitor] = preferences
-        print(scores_by_attribute)
         return scores_by_attribute
 
     def scores_per_player(self, given):
@@ -236,12 +269,22 @@ class Suitor(BaseSuitor):
 
     def get_average_rank(self, given):
         priority = {}
-        for suitor in given:
+        suitor_list = list(given.keys())
+        # So that the suitors are checked for their avg ranks in a random order
+        # Ensures variations between different instances of the same code
+        random.shuffle(suitor_list)
+        for suitor in suitor_list:
             sum_rank = 0
             list_of_bouquets_and_scores = given[suitor]
+            total_days = 0
+            avg_rank = self.num_suitors
             for round in list_of_bouquets_and_scores:
                 sum_rank += round[2]
-            avg_rank = sum_rank / len(list_of_bouquets_and_scores)
+                if(round[2] != 0):
+                    total_days += 1
+
+            if total_days != 0:
+                avg_rank = sum_rank / total_days
 
             priority[suitor] = avg_rank
 
@@ -277,34 +320,37 @@ class Suitor(BaseSuitor):
         #    return None
         
         for flower in iteratorobj:
-            if flower.size == FlowerSizes.Small:
-                attr_score["Small"] += 1
-            elif flower.size == FlowerSizes.Medium:
-                attr_score["Medium"] += 1
-            else:
-                attr_score["Large"] += 1
-
-            if flower.type == FlowerTypes.Rose:
-                attr_score["Rose"] += 1
-            elif flower.type == FlowerTypes.Tulip:
-                attr_score["Tulip"] += 1
-            elif flower.type == FlowerTypes.Begonia:
-                attr_score["Begonia"] += 1
-            else:
-                attr_score["Chrysanthemum"] += 1
-
-            if flower.color == FlowerColors.Red:
-                attr_score["Red"] += 1
-            elif flower.color == FlowerColors.Blue:
-                attr_score["Blue"] += 1
-            elif flower.color == FlowerColors.White:
-                attr_score["White"] += 1
-            elif flower.color == FlowerColors.Purple:
-                attr_score["Purple"] += 1
-            elif flower.color == FlowerColors.Orange:
-                attr_score["Orange"] += 1
-            else:
-                attr_score["Yellow"] += 1
+            attr_score[flower.size.name] += 1
+            attr_score[flower.type.name] += 1
+            attr_score[flower.color.name] += 1
+            # if flower.size == FlowerSizes.Small:
+            #     attr_score["Small"] += 1
+            # elif flower.size == FlowerSizes.Medium:
+            #     attr_score["Medium"] += 1
+            # else:
+            #     attr_score["Large"] += 1
+            #
+            # if flower.type == FlowerTypes.Rose:
+            #     attr_score["Rose"] += 1
+            # elif flower.type == FlowerTypes.Tulip:
+            #     attr_score["Tulip"] += 1
+            # elif flower.type == FlowerTypes.Begonia:
+            #     attr_score["Begonia"] += 1
+            # else:
+            #     attr_score["Chrysanthemum"] += 1
+            #
+            # if flower.color == FlowerColors.Red:
+            #     attr_score["Red"] += 1
+            # elif flower.color == FlowerColors.Blue:
+            #     attr_score["Blue"] += 1
+            # elif flower.color == FlowerColors.White:
+            #     attr_score["White"] += 1
+            # elif flower.color == FlowerColors.Purple:
+            #     attr_score["Purple"] += 1
+            # elif flower.color == FlowerColors.Orange:
+            #     attr_score["Orange"] += 1
+            # else:
+            #     attr_score["Yellow"] += 1
 
         return attr_score
 
@@ -318,77 +364,71 @@ class Suitor(BaseSuitor):
 
         To get the list of suitor ids not including yourself, use the following snippet:"""
 
-        if self.days > 30:
-            self.day_number += 1
-            if self.day_number == self.days:
-                scores_per_player = self.convert_prefs_to_scores_per_player()
-                # scores_per_player is already excluding us, and is in order of the other suitors (index = suitor)
-                chosen_bouquets = self.best_bouquets(flower_counts.copy(), scores_per_player)
-                bouquets = []
-                for suitor in chosen_bouquets:
-                    bouquets.append((self.suitor_id, suitor, Bouquet(chosen_bouquets[suitor])))
-                # print(str(self.suitor_id) + str(self.size_weights) +str(self.type_weights) + str(self.color_weights))
-                return bouquets
-            return self.use_controlled_strategy(flower_counts.copy())
-
+        self.day_number += 1
 
         # this loop inputs the score for each bouquet we gave last round
         if len(self.feedback)!=0:
             this_rounds_feedback = self.feedback[-1]
             for i,rank_score in enumerate(this_rounds_feedback): # rank_score is tuple with rank,score,ties
-                if i!=self.suitor_id:
+                if i in self.random_tested_suitors:
                     score = rank_score[1]
+                    # Worst case rank = rank + ties - 1
+                    worst_case_rank = rank_score[0] + rank_score[2] - 1
                     suitor = i
                     self.given[suitor][-1][1] = score
-                    self.given[suitor][-1][2] = rank_score[0]
+                    self.given[suitor][-1][2] = worst_case_rank
 
-                    if score >= 0.95 and rank_score[0] == 1:   # Remember this bouquet
+                    if score >= 0.85 and worst_case_rank < 3:   # Remember this bouquet
                         temp = []
                         temp.append(self.bouquets_given_this_round[suitor])
                         temp.append(score)
                         self.remember_high_scores[suitor].append(temp)
                         self.num_high_scores[suitor] = self.num_high_scores[suitor] + 1
 
-            print("-------------------------------------------------------------------------------------------------------------")
-            print(self.remember_high_scores)
+            # print("-------------------------------------------------------------------------------------------------------------")
+            # print(self.remember_high_scores)
 
-
-
-        all_ids = np.arange(self.num_suitors)
-        recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
 
+        # In 1 day case, it is the final day
+        if self.days == 1:
+            return list(map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), self.recipient_ids))
 
-        # on the last day prepare special bouquets
-        if self.days_left==1:
-            # list of (self.suitor_id, recipient_id, chosen_bouquet)
-            scores_per_player = self.scores_per_player(self.given) # list of dictionaries {number: [number preferences], color: [color preferences], etc.}
-            # scores_per_player is already excluding us, and is in order of the other suitors (index = suitor)
+        # Is final day, so prepare special bouquets
+        if self.day_number == self.days:
+            if self.days > 30:
+                # Means we have used controlled strat, so scoring prefs for each player is different
+                scores_per_player = self.convert_prefs_to_scores_per_player()
+            else:
+                # list of (self.suitor_id, recipient_id, chosen_bouquet)
+                scores_per_player = self.scores_per_player(self.given)  # list of dictionaries {number: [number preferences], color: [color preferences], etc.}
+                # scores_per_player is already excluding us, and is in order of the other suitors (index = suitor)
+
             # Sort who has highest number of scores saved for priority class "saved_set"
-            self.priority["saved_set"] = sorted(self.num_high_scores.items(), key = lambda x : x[1])
-            # Sort who has highest number of scores saved for priority class "rank"
-            #self.priority["rank"] = sorted(self.get_average_rank(self.given).items(), key = lambda x : x[1])
+            self.priority["saved_set"] = sorted(self.num_high_scores.items(), key=lambda x: x[1])
+            # self.priority["rank"] is a dict with keys = suitor, value = average rank
             self.priority["rank"] = self.get_average_rank(self.given)
-
             chosen_bouquets = self.best_bouquets(remaining_flowers, scores_per_player)
             bouquets = []
             for suitor in chosen_bouquets:
                 bouquets.append((self.suitor_id, suitor, Bouquet(chosen_bouquets[suitor])))
+            return bouquets
+
+        if self.days > 30:
+            # Use controlled strat
+            return self.use_controlled_strategy(remaining_flowers)
         else:
+            # Use random giving strat
             # this loop saves the bouquets so next round we can see the scores
             bouquets = list(
-                map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), recipient_ids))
+                map(lambda recipient_id: self._prepare_bouquet(remaining_flowers, recipient_id), self.recipient_ids))
+            self.random_tested_suitors = list(self.recipient_ids)
             for bouquet in bouquets:
                 player_given_to = bouquet[1]
                 actual_bouquet = bouquet[2]
                 self.given[player_given_to].append([actual_bouquet, 0, 0])
-
                 self.bouquets_given_this_round[player_given_to] = actual_bouquet
-            self.days_left=self.days_left-1
-
-
-
-        return bouquets
+            return bouquets
 
     def zero_score_bouquet(self):
         """
@@ -425,8 +465,10 @@ class Suitor(BaseSuitor):
             total = total + number
 
         # get average score for number of flowers
-        if total != 0:
-            score = score/total
+        # if total != 0:
+        #     score = score/total
+        total = self.personal_max_bouquet_size
+        score = min(1, score/total)
 
         # multiply by .4 since each type, sixe, color is .4 weight but one is dropped + .2 number
         return score*.4
@@ -464,8 +506,10 @@ class Suitor(BaseSuitor):
             total = total + number
 
         # get average score for number of flowers
-        if total != 0:
-            score = score / total
+        # if total != 0:
+        #     score = score / total
+        total = self.personal_max_bouquet_size
+        score = min(1, score/total)
 
         # multiply by .4 since each type, sixe, color is .4 weight but one is dropped + .2 number
         return score * .4
@@ -494,8 +538,10 @@ class Suitor(BaseSuitor):
             total = total + number
 
         # get average score for number of flowers
-        if total != 0:
-            score = score / total
+        # if total != 0:
+        #     score = score / total
+        total = self.personal_max_bouquet_size
+        score = min(1, score/total)
 
         # multiply by .4 since each type, sixe, color is .4 weight but one is dropped + .2 number
         score = score * .4
@@ -540,7 +586,6 @@ class Suitor(BaseSuitor):
     def initalize_controlled_strat(self):
         self.prefs = {}
         self.controlled_strat = {}
-        self.controlled_given = {}
         for suitor in self.recipient_ids:
             self.controlled_strat[suitor] = {
                 "colors" : [c for c in FlowerColors],
@@ -567,7 +612,6 @@ class Suitor(BaseSuitor):
                 "Begonia": 0,
                 "None": 0
             }
-            self.controlled_given[suitor] = []
 
     def start_controlled_color(self, suitor, flower):
         self.controlled_strat[suitor]["colors"].remove(flower.color)
@@ -627,6 +671,12 @@ class Suitor(BaseSuitor):
                 self.controlled_strat[suitor]["sizes"].remove(size)
                 self.controlled_strat[suitor]["tested_param"] = size.name
                 return reqd_flower, all_tested_flag
+        # tests = [self.color_test, self.size_test, self.type_test]
+        # random.shuffle(tests)
+        # for i in tests:
+        #     reqd_flower, all_tested_flag = i(flowers_in_market, suitor)
+        #     if reqd_flower is not None:
+        #         return reqd_flower, all_tested_flag
         self.controlled_strat[suitor]["tested_param"] = "None"
         return None, all_tested_flag
 
@@ -659,11 +709,13 @@ class Suitor(BaseSuitor):
                 self.suitors_to_test.remove(suitor)
 
         bouquets = []
+        self.random_tested_suitors = list(remaining_receipients)
+        random.shuffle(remaining_receipients)
         random_bouquets = list(
             map(lambda recipient_id: self._prepare_random_bouquet(flowers_in_market, recipient_id), remaining_receipients))
         for bouquet in random_bouquets:
-            # TODO: Do something with these values
-            self.controlled_given[bouquet[1]].append([bouquet[2], 0])
+            self.given[bouquet[1]].append([bouquet[2], 0, 0])
+            self.bouquets_given_this_round[bouquet[1]] = bouquet[2]
         for k, v in chosen_bouquets.items():
             bouquets.append((self.suitor_id, k, Bouquet({v: 1})))
         return bouquets + random_bouquets

@@ -16,7 +16,7 @@ def get_default_args():
     args.save_results = True
     args.remove_round_logging = True
     args.gui = False
-    args.from_config = False
+    args.p_from_config = False
     return args
 
 

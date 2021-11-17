@@ -43,3 +43,4 @@ if __name__ == '__main__':
     df = pd.DataFrame(df)
     df.sort_values(by='priority', inplace=True)
     df.to_csv('tourney_configs.csv', index=False)
+    print('Done!')

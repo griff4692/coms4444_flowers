@@ -218,7 +218,11 @@ class FlowerMarriageGame:
             assert suitor_from != suitor_to
             bouquet = Bouquet({}) if bouquet is None else bouquet
             self.bouquets[curr_round, suitor_from, suitor_to] = bouquet
-            score = aggregate_score(self.suitors[suitor_to], bouquet)
+            try:
+                score = aggregate_score(self.suitors[suitor_to], bouquet)
+            except:
+                self.logger.error(f'Suitor {suitor_to} had a bug when scoring the bouquet.  Setting it to 0')
+                score = 0
             if score < 0 or score > 1:
                 self.logger.error(
                     f'Suitor {suitor_to} provided an invalid score - i.e., not in [0, 1].  Setting it to 0')

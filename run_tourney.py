@@ -9,47 +9,45 @@ from tourney_scripts import GROUPS, DAYS
 from main import FlowerMarriageGame
 
 
-def get_default_args():
-    parser = argparse.ArgumentParser('Tournament Run')
-    args = parser.parse_args()
-    args.restrict_time = True
-    args.save_results = True
-    args.remove_round_logging = True
-    args.gui = False
-    args.p_from_config = False
-    return args
+class RunArgs:
+    def __init__(self):
+        self.restrict_time = True
+        self.save_results = True
+        self.remove_round_logging = True
+        self.gui = False
+        self.p_from_config = False
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Tournament-Level Settings')
     parser.add_argument('-overwrite', default=False, action='store_true')
     parser.add_argument('--d_filter', default=None, type=int, choices=DAYS)
-    args = parser.parse_args()
+    tourney_args = parser.parse_args()
     os.makedirs('logs', exist_ok=True)
     os.makedirs('results', exist_ok=True)
     tourney_script = pd.read_csv('tourney_configs.csv')
-    if args.d_filter is not None:
-        tourney_script = tourney_script[tourney_script['d'] == args.d_filter]
+    if tourney_args.d_filter is not None:
+        tourney_script = tourney_script[tourney_script['d'] == tourney_args.d_filter]
         assert len(tourney_script) > 0
     runs = tourney_script.to_dict('records')
 
     for run in tqdm(runs, total=len(runs)):
         run_id = abs(hash(json.dumps(run)))
         out_fn = os.path.join('results', f'{run_id}.csv')
-        if os.path.exists(out_fn) and not args.overwrite:
+        if os.path.exists(out_fn) and not tourney_args.overwrite:
             print(f'Already played {run_id}')
             continue
-        args = get_default_args()
-        args.run_id = run_id
-        args.log_file = f'logs/{run_id}.txt'
-        args.random_state = run['random_state']
-        args.p = run['p']
-        args.d = run['d']
+        run_args = RunArgs()
+        run_args.run_id = run_id
+        run_args.log_file = f'logs/{run_id}.txt'
+        run_args.random_state = run['random_state']
+        run_args.p = run['p']
+        run_args.d = run['d']
         suitor_names = []
         for group in GROUPS:
             suitor_names += [group] * run[group]
-        assert len(suitor_names) == args.p
-        game = FlowerMarriageGame(args, suitor_names=suitor_names)
+        assert len(suitor_names) == run_args.p
+        game = FlowerMarriageGame(run_args, suitor_names=suitor_names)
         game.play()
         output_df = game.generate_output_df()
         output_df.to_csv(out_fn, index=False)

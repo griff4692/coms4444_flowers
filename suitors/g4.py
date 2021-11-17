@@ -336,7 +336,7 @@ class Suitor(BaseSuitor):
                         sortedList.extend(j)
                     sortedList.sort(key=lambda x: x[1], reverse=True)
                     canMake = False
-                    for flowers, score in sortedList[:math.ceil(len(sortedList) / 2)]:
+                    for flowers, score, _ in sortedList[:math.ceil(len(sortedList) / 2)]:
                         if self.able_to_create_bouquet(flowers, flower_counts):
                             canMake = True
                             bouquet_for_all.append([self.suitor_id, i, flowers])

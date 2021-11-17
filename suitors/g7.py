@@ -22,7 +22,8 @@ class Suitor(BaseSuitor):
         self.bouq_Dict = {}
         self.weights = {}
 
-        self.num_pref = np.random.randint(1,12)
+        #self.num_pref = np.random.randint(1,12)
+        self.num_pref = np.random.randint(1,6)
         self.type_pref = [] # 4 types
         self.color_pref = [] # 6 colors
         self.size_pref = [] # 3 sizes
@@ -316,8 +317,8 @@ class Suitor(BaseSuitor):
     
     def exponential_func(self, max_val, index, optimum_count, zero_count):
         denom = 2 - (abs(optimum_count - zero_count) / 15)
-        k = np.sqrt(self.days)
-        #k = np.ceil()
+        k = np.sqrt(self.days) * 5
+        
         val = pow((1 / denom), index * k) * max_val
 
         return val

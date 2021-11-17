@@ -102,7 +102,11 @@ class Suitor(BaseSuitor):
                 np.array([most_even_dist] * len(v1))
             ) + 1
         ) 
-        dist =  1 / (self.compute_euc_dist(v1,v2) ** 3 + 1)
+        amp_dist = self.compute_euc_dist(v1,v2)
+        if amp_dist > 1:
+            amp_dist = amp_dist ** 3
+        dist =  1 / (amp_dist + 1)
+        print(dist)
         return dist if dist > THRESHOLD else 0
 
     def _assign_control_groups(self):

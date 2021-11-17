@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict
 
-from flowers import Bouquet, Flower, FlowerColors, FlowerSizes, FlowerTypes
+from flowers import Flower, FlowerColors, FlowerSizes
 from time_utils import break_after, prepare_empty_bouquets
 
 
@@ -36,7 +36,7 @@ class BaseSuitor(ABC):
         """
         pass
 
-    @break_after(1, fallback_func=prepare_empty_bouquets)
+    @break_after(2, fallback_func=prepare_empty_bouquets)
     def prepare_bouquets_timed(self, flower_counts: Dict[Flower, int]):
         """
         Imposes 1 second time limit on self.prepare_bouqets.  Do not override this method
@@ -96,7 +96,7 @@ class BaseSuitor(ABC):
         """
         pass
 
-    @break_after(1, fallback_func=None)
+    @break_after(2, fallback_func=None)
     def receive_feedback_timed(self, feedback):
         """
         Imposes 1 second time limit on self.receive_feedback.  Do not override this method

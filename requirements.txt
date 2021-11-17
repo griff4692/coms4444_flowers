@@ -4,3 +4,4 @@ pandas
 remi
 scipy
 scikit-learn
+tqdm

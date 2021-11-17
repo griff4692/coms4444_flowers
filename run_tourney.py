@@ -5,7 +5,7 @@ import argparse
 import pandas as pd
 from tqdm import tqdm
 
-from tourney_scripts import GROUPS
+from tourney_scripts import GROUPS, DAYS
 from main import FlowerMarriageGame
 
 
@@ -21,16 +21,23 @@ def get_default_args():
 
 
 if __name__ == '__main__':
-    OVERWRITE = True
+    parser = argparse.ArgumentParser('Tournament-Level Settings')
+    parser.add_argument('-overwrite', default=False, action='store_true')
+    parser.add_argument('--d_filter', default=None, type=int, choices=DAYS)
+    args = parser.parse_args()
     os.makedirs('logs', exist_ok=True)
     os.makedirs('results', exist_ok=True)
     tourney_script = pd.read_csv('tourney_configs.csv')
+    if args.d_filter is not None:
+        tourney_script = tourney_script[tourney_script['d'] == args.d_filter]
+        assert len(tourney_script) > 0
     runs = tourney_script.to_dict('records')
 
     for run in tqdm(runs, total=len(runs)):
         run_id = abs(hash(json.dumps(run)))
         out_fn = os.path.join('results', f'{run_id}.csv')
-        if os.path.exists(out_fn) and not OVERWRITE:
+        if os.path.exists(out_fn) and not args.overwrite:
+            print(f'Already played {run_id}')
             continue
         args = get_default_args()
         args.run_id = run_id

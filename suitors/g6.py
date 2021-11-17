@@ -41,7 +41,30 @@ class Suitor(BaseSuitor):
         self.wanted_bouquet = sample_n_random_flowers(get_all_possible_flowers(),MAX_BOUQUET_SIZE)
         self.typeWeight, self.colorWeight, self.sizeWeight = np.random.dirichlet(np.ones(3),size=1)[0]
         self.wanted_colors,self.wanted_sizes,self.wanted_types = self._parse_bouquet()
-        self.threshold = 0.99
+        self.threshold = 0.9
+        if num_suitors>=36:
+            if days<90:
+                self.threshold = 0.95
+            elif days>180:
+                self.threshold = 0.99
+            else:
+                self.threshold = 0.97
+        elif num_suitors>=18:
+            if days<90:
+                self.threshold = 0.92
+            elif days>180:
+                self.threshold = 0.97
+            else:
+                self.threshold = 0.95
+        else:
+            if days<90:
+                self.threshold = 0.90
+            elif days>180:
+                self.threshold = 0.95
+            else:
+                self.threshold = 0.92
+
+
 
     def _parse_bouquet(self):
         colors = np.zeros(6)
@@ -144,7 +167,7 @@ class Suitor(BaseSuitor):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         """
-        # time1 = time.time()
+        #time1 = time.time()
         remaining_flowers = flower_counts.copy()
         num_recips = len(self.priority)
 

@@ -349,7 +349,7 @@ class Suitor(BaseSuitor):
         score = self.type_score[tuple(combination)]
         # random based on the days and number of players
         max = 1819
-        threshold = int(0.001**(2/((self.days-1) *(self.num_suitors-1)))*max)
+        threshold = int(0.1**(1/((self.days-1) *(self.num_suitors-1)))*max)
         if score> threshold:
             return 8.5/13
         else:

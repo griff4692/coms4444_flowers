@@ -235,7 +235,8 @@ class Suitor(BaseSuitor):
         super().__init__(days, num_suitors, suitor_id, name='g3')
         self.day_count = 0
         self.total_days = days
-        self.first_pruning = random.randint(days // 3, days // 2)
+        factor = 3 if days <= 7 else 2
+        self.first_pruning = days // factor
         if self.first_pruning <= 2 and self.total_days >= 3:
             self.first_pruning = self.total_days
         self.logger = logging.getLogger(__name__)

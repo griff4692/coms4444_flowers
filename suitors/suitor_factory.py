@@ -20,7 +20,10 @@ def suitor_by_name(team_name, *args):
     g_team = re.match(r'g(\d+)', team_name)
     if g_team is not None:
         group_num = g_team.group(1)
-        return globals()[f'G{group_num}Suitor'](*args)
+        try:
+            return globals()[f'G{group_num}Suitor'](*args)
+        except:
+            return None
     if team_name != 'rand':
         error_msg = f'Invalid group name provided --> {team_name}'
         logger.error(error_msg)

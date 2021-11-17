@@ -60,10 +60,15 @@ class FlowerMarriageGame:
         # Instantiate suitors
         self.suitors = [suitor_by_name(self.suitor_names[i], self.d, self.p, i) for i in range(self.p)]
         suitor_conformity = list(map(validate_suitor, self.suitors))
+        valid_suitors = []
         for suitor, suitor_status in zip(self.suitors, suitor_conformity):
             if suitor_conformity == 0:
                 self.logger.error(f'Suitor {suitor.suitor_id} '
                                   f'({suitor.name}) provided invalid zero/one boundary bouquets.')
+            else:
+                valid_suitors.append(suitor)
+        self.suitors = valid_suitors
+        self.p = len(self.suitors)
 
         # Instantiate arrays to keep track of bouquets provided at each round, as well as scores and ranks.
         self.bouquets = np.empty(shape=(self.d, self.p, self.p), dtype=Bouquet)
@@ -301,6 +306,8 @@ def aggregate_score(suitor: BaseSuitor, bouquet: Bouquet):
 
 
 def validate_suitor(suitor):
+    if suitor is None:
+        return 0
     try:
         assert aggregate_score(suitor, suitor.zero_score_bouquet()) == 0
         assert aggregate_score(suitor, suitor.one_score_bouquet()) == 1

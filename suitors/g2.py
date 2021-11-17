@@ -135,7 +135,7 @@ class Suitor(BaseSuitor):
 
             if similarity == target:
                 if copy_flower_counts[str(flow[0])] > 0:
-                    print(target)
+                    # print(target)
                     count += 1
                     if typ:
                         scoring_function[flow[0].type] -= 1
@@ -445,12 +445,13 @@ class Suitor(BaseSuitor):
 
             # print(o_id, rank, score)
             g_rank_s[o_id] = -2*rank
-            g_rank_s[o_id] += score
 
-            # if self.turn != self.days:
-            #     g_rank_s[o_id] -= score
-            # else:
-            #     g_rank_s[o_id] += score
+            if self.turn != self.days:
+                g_rank_s[o_id] -= score
+                if rank == 1 and score == 0:
+                    g_rank_s[o_id] -= random.random()
+            else:
+                g_rank_s[o_id] += score
 
             # g_rank_s[o_id] = score/rank
 

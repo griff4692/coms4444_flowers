@@ -193,11 +193,13 @@ class Suitor(BaseSuitor):
                 for cf in scored_flowers[:size-1]:
                     chosen_flowers.append(cf[0])
                 chosen_flower_counts = dict(Counter(chosen_flowers))
-                for k, v in chosen_flower_counts.items():
-                    remaining_flowers[k] -= v
-                    assert remaining_flowers[k] >= 0
             else: # empty is optimal but do we want to give that?
                 chosen_flower_counts = dict()
+
+        if chosen_flower_counts != dict():
+            for k, v in chosen_flower_counts.items():
+                remaining_flowers[k] -= v
+                assert remaining_flowers[k] >= 0
         
         chosen_bouquet = Bouquet(chosen_flower_counts)
 

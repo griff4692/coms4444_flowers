@@ -19,6 +19,8 @@ from time_utils import prepare_empty_bouquets
 
 class FlowerMarriageGame:
     def __init__(self, args, suitor_names=None):
+        self.d = args.d
+        self.random_state = args.random_state
         self.restrict_time = args.restrict_time
         self.remove_round_logging = args.remove_round_logging
         logging.basicConfig(
@@ -27,20 +29,16 @@ class FlowerMarriageGame:
         )
         self.logger = logging.getLogger(__name__)
         # A CSV config file specifying each group and their associated instances in the game.
-        if args.from_config:
+        if args.p_from_config:
             config_df = pd.read_csv(args.config_path)
-            self.d = int(config_df.loc[config_df['group'] == 'd', 'counts'].iloc[0])
-            self.random_state = config_df.loc[config_df['group'] == 'random_state', 'counts'].iloc[0]
-            config_df = config_df[(~config_df['group'].isin({'d', 'random_state'})) & (config_df['counts'] > 0)]
+            config_df = config_df[config_df['counts'] > 0]
             assert len(config_df) > 0
             self.suitor_names = flatten_counter(dict(zip(config_df['group'], config_df['counts'])))
             self.p = config_df.counts.sum()
         else:
             self.p = args.p
-            self.d = args.d
             self.suitor_names = [args.group] * self.p if suitor_names is None else suitor_names
             assert len(self.suitor_names) == self.p
-            self.random_state = args.random_state
         assert self.p >= 2 and self.p % 2 == 0
         np.random.seed(self.random_state)
 
@@ -311,8 +309,8 @@ if __name__ == '__main__':
     parser.add_argument('-restrict_time', default=False, action='store_true')
     parser.add_argument('--log_file', default='game.log')
     parser.add_argument(
-        '--group', type=str, default='Group name will be duplicated p times. Ignored if from_config=True.')
-    parser.add_argument('-from_config', default=False, action='store_true')
+        '--group', type=str, default='Group name will be duplicated p times. Ignored if p_from_config=True.')
+    parser.add_argument('-p_from_config', default=False, action='store_true')
     parser.add_argument('--config_path', default='config.csv', help='path from which to read in the config file.')
     parser.add_argument('--random_state', type=int, default=1992, help='Random seed.  Fix for consistent experiments')
     parser.add_argument('--port', '-p', type=int, default=8080, help='Port to start')

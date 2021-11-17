@@ -1,6 +1,4 @@
 import itertools
-from collections import defaultdict
-from itertools import combinations
 import pandas as pd
 
 GROUPS = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9']
@@ -44,4 +42,5 @@ if __name__ == '__main__':
 
     df = pd.DataFrame(df)
     df.sort_values(by='priority', inplace=True)
-    df.to_csv('global_config.csv', index=False)
+    df.to_csv('tourney_configs.csv', index=False)
+    print('Done!')

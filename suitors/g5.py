@@ -2,6 +2,8 @@ import collections
 import heapq
 import random
 import math
+import itertools
+
 from dataclasses import dataclass
 from typing import Dict, Tuple, List, Union
 
@@ -198,25 +200,22 @@ class Suitor(BaseSuitor):
         for suitor_id, (_, _, bouquet) in ret.items():
             if sum(bouquet.arrangement.values()) == 0:
                 empty_bouquet_suitors.append(suitor_id)
-        remaining_flowers = sum(flower_counts.values())
-        while remaining_flowers > 0:
-            for sid in empty_bouquet_suitors:
-                if remaining_flowers == 0:
-                    break
-                for flower, remaining in flower_counts.items():
-                    if remaining == 0:
-                        continue
-                    remaining_flowers -= 1
-                    flower_counts[flower] -= 1
 
-                    # Update bouquet
-                    _, _, bouquet = ret[sid]
-                    bouquet_dict = bouquet.arrangement
-                    if flower not in bouquet_dict:
-                        bouquet_dict[flower] = 1
-                    else:
-                        bouquet_dict[flower] += 1
-                    ret[sid] = (self.suitor_id, sid, Bouquet(bouquet_dict))
+        flowers = []
+        for flower, count in flower_counts.items():
+            for _ in range(count):
+                flowers.append(flower)
+        random.shuffle(flowers)
+
+        for flower, sid in zip(flowers, itertools.cycle(empty_bouquet_suitors)):
+            _, _, bouquet = ret[sid]
+            bouquet_dict = bouquet.arrangement
+            if flower not in bouquet_dict:
+                bouquet_dict[flower] = 1
+            else:
+                bouquet_dict[flower] += 1
+            flower_counts[flower] -= 1
+            ret[sid] = (self.suitor_id, sid, Bouquet(bouquet_dict))
 
         assert sum(flower_counts.values()) == 0
         return list(ret.values())

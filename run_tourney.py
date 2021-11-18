@@ -35,10 +35,14 @@ def run_experiment(run):
     for group in GROUPS:
         suitor_names += [group] * run[group]
     assert len(suitor_names) == run_args.p
-    game = FlowerMarriageGame(run_args, suitor_names=suitor_names)
-    game.play()
-    output_df = game.generate_output_df()
-    output_df.to_csv(out_fn, index=False)
+    try:
+        game = FlowerMarriageGame(run_args, suitor_names=suitor_names)
+        game.play()
+        output_df = game.generate_output_df()
+        output_df.to_csv(out_fn, index=False)
+    except:
+        print('Uncaught error.')
+        return 0
     return 1
 
 
@@ -58,24 +62,3 @@ if __name__ == '__main__':
 
     statuses = list(p_uimap(run_experiment, runs))
     print(f'{sum(statuses)}/{len(statuses)} experiments run.')
-
-    # for run in tqdm(runs, total=len(runs)):
-    #     run_id = re.sub(r'\W+', '_', json.dumps(run)).strip('_')
-    #     out_fn = os.path.join('results', f'{run_id}.csv')
-    #     if os.path.exists(out_fn) and not tourney_args.overwrite:
-    #         print(f'Already played {run_id}')
-    #         continue
-    #     run_args = RunArgs()
-    #     run_args.run_id = run_id
-    #     run_args.log_file = f'logs/{run_id}.txt'
-    #     run_args.random_state = run['random_state']
-    #     run_args.p = run['p']
-    #     run_args.d = run['d']
-    #     suitor_names = []
-    #     for group in GROUPS:
-    #         suitor_names += [group] * run[group]
-    #     assert len(suitor_names) == run_args.p
-    #     game = FlowerMarriageGame(run_args, suitor_names=suitor_names)
-    #     game.play()
-    #     output_df = game.generate_output_df()
-    #     output_df.to_csv(out_fn, index=False)

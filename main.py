@@ -59,6 +59,7 @@ class FlowerMarriageGame:
     def reset_game_state(self):
         # Instantiate suitors
         self.suitors = [suitor_by_name(self.suitor_names[i], self.d, self.p, i) for i in range(self.p)]
+        self.suitors = list(filter(None, self.suitors))
         suitor_conformity = list(map(validate_suitor, self.suitors))
         valid_suitors = []
         for suitor, suitor_status in zip(self.suitors, suitor_conformity):
@@ -226,7 +227,7 @@ class FlowerMarriageGame:
             bouquet = Bouquet({}) if bouquet is None else bouquet
             self.bouquets[curr_round, suitor_from, suitor_to] = bouquet
             try:
-                score = aggregate_score(self.suitors[suitor_to], bouquet)
+                score = float(aggregate_score(self.suitors[suitor_to], bouquet))
             except:
                 self.logger.error(f'Suitor {suitor_to} ({self.suitors[suitor_to].name})'
                                   f' had a bug when scoring the bouquet.  Setting it to 0')

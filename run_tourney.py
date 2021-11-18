@@ -4,7 +4,6 @@ import regex as re
 
 import argparse
 import pandas as pd
-from tqdm import tqdm
 from p_tqdm import p_uimap
 
 from tourney_scripts import GROUPS, DAYS
@@ -46,7 +45,7 @@ def run_experiment(run):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Tournament-Level Settings')
     parser.add_argument('-overwrite', default=False, action='store_true')
-    parser.add_argument('--cpu_frac', default=0.33, action='store_true')
+    parser.add_argument('--cpu_frac', default=0.33, type=float)
     parser.add_argument('--d_filter', default=None, type=int, choices=DAYS)
     tourney_args = parser.parse_args()
     os.makedirs('logs', exist_ok=True)

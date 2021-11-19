@@ -2,6 +2,10 @@
 __pycache__
 *.log
 .vscode
+single_results
 results
 tourney_configs.csv
+single_configs.csv
 logs
+single_logs
+single_results

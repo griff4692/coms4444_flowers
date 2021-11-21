@@ -1,10 +1,9 @@
 from typing import Dict
 from collections import Counter, defaultdict
-from random import shuffle, choice, randint
+from random import choice, randint
 import math
 import random as rand
 import numpy as np
-
 from flowers import Bouquet, Flower, FlowerSizes, FlowerColors, FlowerTypes
 from suitors.base import BaseSuitor
 from utils import flatten_counter
@@ -13,7 +12,6 @@ from copy import deepcopy
 
 # color, type, size ratio in experiments
 CTS_RATIO = [6, 4, 3]
-
 
 class Suitor(BaseSuitor):
     def __init__(self, days: int, num_suitors: int, suitor_id: int):
@@ -34,14 +32,14 @@ class Suitor(BaseSuitor):
         self.last_bouquet = None  # bouquet we gave out from the last turn
         self.control_group_assignments = self._assign_control_groups()
         round_approx = days * num_suitors
-        fix1y = 80 
-        slope = (30 - fix1y) / (365 * 6 - (3*6)) 
-        calculatedPoint = math.ceil(slope * (round_approx - 3*6) + fix1y)
+        fix1y = 80
+        slope = (30 - fix1y) / (365 * 6 - (3 * 6))
+        calculatedPoint = math.ceil(slope * (round_approx - 3 * 6) + fix1y)
         bouquets_to_generate = max(calculatedPoint, 30)
         self.best_arrangement = [self.generate_random_bouquet() for _ in range(bouquets_to_generate)]
         self.sizev, self.colorv, self.typev = [], [], []
         for arrangement in self.best_arrangement:
-            s,c,v = self.get_bouquet_score_vectors(arrangement)
+            s, c, v = self.get_bouquet_score_vectors(arrangement)
             self.sizev.append(s)
             self.colorv.append(c)
             self.typev.append(v)
@@ -55,9 +53,11 @@ class Suitor(BaseSuitor):
         self.test_interval = 10
         self.previous_round_is_test = False
 
+
     @staticmethod
     def _get_combinations(list1, list2):
         return [[list1[i], list2[j]] for i in range(len(list1)) for j in range(len(list2))]
+
 
     def generate_random_flower(self):
         return Flower(
@@ -66,8 +66,10 @@ class Suitor(BaseSuitor):
             type=choice(list(FlowerTypes)),
         )
 
+
     def generate_random_bouquet(self):
-        return [self.generate_random_flower() for _ in range(randint(4, MAX_BOUQUET_SIZE+1))]
+        return [self.generate_random_flower() for _ in range(randint(4, MAX_BOUQUET_SIZE + 1))]
+
 
     def get_bouquet_score_vectors(self, bouquet_vect):
         size_vec = [0] * len(FlowerSizes)
@@ -80,13 +82,16 @@ class Suitor(BaseSuitor):
 
         return size_vec, color_vec, type_vec
 
+
     def compute_cosine_sim(self, v1, v2):
         # v1 and v2 are all positive numbers, so bounded from 0 to 1 
         return (v1 @ v2.T) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
+
     def compute_euc_dist(self, v1, v2):
         # can make higher norm to increase steepness?
-        return np.linalg.norm(np.array(v1) - np.array(v2), ord = 4)
+        return np.linalg.norm(np.array(v1) - np.array(v2), ord=4)
+
 
     def compute_distance_heuristic(self, v1, v2):
         # v1 and v2 bounded from 0 to inf
@@ -100,16 +105,17 @@ class Suitor(BaseSuitor):
         threshold_vect = [0] * len(v1)
         threshold_vect[0] = 12
         THRESHOLD = 1 / (
-            np.linalg.norm(
-                np.array(threshold_vect)-
-                np.array([most_even_dist] * len(v1))
-            ) + 1
-        ) 
-        amp_dist = self.compute_euc_dist(v1,v2)
+                np.linalg.norm(
+                    np.array(threshold_vect) -
+                    np.array([most_even_dist] * len(v1))
+                ) + 1
+        )
+        amp_dist = self.compute_euc_dist(v1, v2)
         amp_dist = amp_dist ** 2
-        dist =  1 / (amp_dist + 1)
-        dist = ((2*dist - 1) ** 3 + 1) / 2
+        dist = 1 / (amp_dist + 1)
+        dist = ((2 * dist - 1) ** 3 + 1) / 2
         return dist if dist > THRESHOLD else 0
+
 
     def _assign_control_groups(self):
         """
@@ -142,6 +148,7 @@ class Suitor(BaseSuitor):
 
         return assignments
 
+
     def able_to_create_bouquet(self, flowers, flowercount):
         for flower, count in flowers.arrangement.items():
             if flower in flowercount:
@@ -150,6 +157,7 @@ class Suitor(BaseSuitor):
             else:
                 return False
         return True
+
 
     def _testing_round(self, flower_counts, final_round_ranks=None):
         # Get the order of player IDs in best order
@@ -163,12 +171,12 @@ class Suitor(BaseSuitor):
                 categories = self.experiments[id].values()
                 for r in categories:
                     for res in r:
-                        score, rank = res[1], res[2] # rank
-                        if score > 0: # Ignore the suite if the best score we got with them was a zero
+                        score, rank = res[1], res[2]  # rank
+                        if score > 0:  # Ignore the suite if the best score we got with them was a zero
                             best_rank = min(best_rank, rank)
                 ranks.append((id, best_rank))
-        
-        ranks.sort(key=lambda x:x[1]) # sort by suitor ID in best order
+
+        ranks.sort(key=lambda x: x[1])  # sort by suitor ID in best order
         num_flowers_remaining = 0
         idx = 0
         results = []
@@ -181,7 +189,7 @@ class Suitor(BaseSuitor):
             bouquet_size, color_rank, size_rank, type_rank = self.player_stats(player)
             idx += 1
             d = {}
-            if bouquet_size > num_flowers_remaining: # If we do not have enough flowers to make their ideal bouquet just use the remaining amount of flowers
+            if bouquet_size > num_flowers_remaining:  # If we do not have enough flowers to make their ideal bouquet just use the remaining amount of flowers
                 for key, value in flower_counts:
                     if value > 0:
                         d[key] = value
@@ -192,16 +200,17 @@ class Suitor(BaseSuitor):
                     f = li[i][0]
                     d[f] = d.get(f, 0) + 1
                     flower_counts[f] -= 1
-            
+
             # :return: list of tuples of (self.suitor_id, recipient_id, chosen_bouquet)
             num_flowers_remaining -= bouquet_size
             results.append((self.suitor_id, player, Bouquet(d)))
-        
+
         # Now go through other players we have not seen yet and give them an empty bouquet
         for i in range(idx, len(ranks)):
             results.append((self.suitor_id, ranks[i][0], Bouquet({})))
-        
+
         return results
+
 
     def calculate_flower_scores(self, flower_counts, color_rank, size_rank, type_rank):
         li = []
@@ -212,14 +221,14 @@ class Suitor(BaseSuitor):
                     li.append((key, score))
         li.sort(key=lambda x: x[1], reverse=True)
         return li
-    
+
+
     def player_stats(self, player):
         results = self.experiments[player]
         counts = defaultdict(list)
         preferences_c = defaultdict(list)
         preferences_s = defaultdict(list)
         preferences_t = defaultdict(list)
-        categories = ['color', 'type', 'size']
         # Loop through the colors
         for experiment in results['color']:
             bouquet, score = experiment[0], experiment[1]
@@ -252,7 +261,6 @@ class Suitor(BaseSuitor):
                 bouquet_size_score = res
                 bouquet_size = key
 
-
         # Calculate proportion scores
         proportion_color = defaultdict(int)
         total = 0
@@ -260,37 +268,36 @@ class Suitor(BaseSuitor):
             s = sum(value)
             total += s
             proportion_color[key] = s
-        
+
         if total > 0:
             for key in proportion_color:
                 proportion_color[key] = proportion_color[key] / total
 
-        
         proportion_size = defaultdict(int)
         total = 0
         for key, value in preferences_s.items():
             s = sum(value)
             total += s
             proportion_size[key] = s
-        
+
         if total > 0:
             for key in proportion_size:
                 proportion_size[key] = proportion_size[key] / total
 
-        
         proportion_type = defaultdict(int)
         total = 0
         for key, value in preferences_t.items():
             s = sum(value)
             total += s
             proportion_type[key] = s
-        
+
         if total > 0:
             for key in proportion_type:
                 proportion_type[key] = proportion_type[key] / total
 
         return bouquet_size, proportion_color, proportion_size, proportion_type
-    
+
+
     def prepare_bouquets(self, flower_counts: Dict[Flower, int]):
         """
         :param flower_counts: flowers and associated counts for for available flowers
@@ -308,11 +315,10 @@ class Suitor(BaseSuitor):
         bouquet_for_all_and_etype = []
         flower_info = self._tabularize_flowers(flower_counts)
 
-        # Testing round -- comment out this code to run testing round
+        # Testing round
         if self.remaining_turns == 1:
             if len(self.feedback) > 0:  # store past bouquets and scores
                 self.update_results()
-
             return self._testing_round(flower_counts)
 
         # final round
@@ -328,18 +334,18 @@ class Suitor(BaseSuitor):
 
             return self._testing_round(flower_counts, final_round_ranks=testing_ranks)
 
-        else:  # training phase: conduct controlled experiments
+        else:  # training rounds: conduct controlled experiments & interleave the experiments with testing round
             if not self.previous_round_is_test:  # only update results if previous round was a regular searching round
                 if len(self.feedback) > 0:  # store past bouquets and scores
                     self.update_results()
 
             # check if it is time to test
-            if ((self.days - self.remaining_turns)+1) % self.test_interval == 0:
+            if ((self.days - self.remaining_turns) + 1) % self.test_interval == 0:
                 self.previous_round_is_test = True
                 return self._testing_round(flower_counts)
 
             # reorder self.recipient_ids based on the testing round rank
-            if self.previous_round_is_test == True:
+            if self.previous_round_is_test:
                 self.previous_round_is_test = False
                 # save feedback (only ranks) from previous round (testing round)
                 results = self.feedback[-1]
@@ -361,8 +367,8 @@ class Suitor(BaseSuitor):
 
             # update last_bouquet
             self.last_bouquet = bouquet_for_all_and_etype
-
             return bouquet_for_all
+
 
     def _prepare_bouquet(self, flower_info, recipient_id):
         chosen_flowers = []  # for building a bouquet later
@@ -418,7 +424,6 @@ class Suitor(BaseSuitor):
 
                     if is_duplicate:
                         continue
-
                 else:  # if there are no flower with the fc_control [size, type] setting
                     continue
 
@@ -456,7 +461,6 @@ class Suitor(BaseSuitor):
 
                     if is_duplicate:
                         continue
-
                 else:
                     continue
 
@@ -504,6 +508,7 @@ class Suitor(BaseSuitor):
 
             return chosen_flowers, exp_type, flower_info
 
+
     def _is_duplicate(self, flower_exp, recipient_id):
         for exp_type in ['color', 'type', 'size', 'None']:
             if len(np.asarray(self.experiments[recipient_id][exp_type])) == 0:
@@ -520,11 +525,14 @@ class Suitor(BaseSuitor):
                     return True
         return False
 
+
     def _play_random_suitor(self, flower_counts):
         all_ids = np.arange(self.num_suitors)
         recipient_ids = all_ids[all_ids != self.suitor_id]
         remaining_flowers = flower_counts.copy()
-        return list(map(lambda recipient_id: self._play_random_suitor_helper(remaining_flowers, recipient_id), recipient_ids))
+        return list(
+            map(lambda recipient_id: self._play_random_suitor_helper(remaining_flowers, recipient_id), recipient_ids))
+
 
     def _play_random_suitor_helper(self, remaining_flowers, recipient_id):
         num_remaining = sum(remaining_flowers.values())
@@ -539,6 +547,7 @@ class Suitor(BaseSuitor):
             chosen_flower_counts = dict()
         chosen_bouquet = Bouquet(chosen_flower_counts)
         return self.suitor_id, recipient_id, chosen_bouquet
+
 
     def _generate_rand_bouquet(self, flower_info, recipient_id):
         remaining_flowers = self._list_flowers(flower_info)
@@ -564,6 +573,7 @@ class Suitor(BaseSuitor):
         chosen_flowers = []
         return chosen_flowers, flower_info
 
+
     # Helper function that adds to results
     # Make sure that last_bouquet is in the correct player order (i.e. suitor 0 is index 0)
     def update_results(self):
@@ -577,6 +587,7 @@ class Suitor(BaseSuitor):
 
                 player[exp_type].append([bouquet_given, results[i][1], results[i][0]])
 
+
     @staticmethod
     def _tabularize_flowers(flower_counts):
         flowers = flower_counts.keys()
@@ -584,6 +595,7 @@ class Suitor(BaseSuitor):
         for flower in flowers:
             flower_info[flower.color.value][flower.type.value][flower.size.value] = flower_counts[flower]
         return flower_info
+
 
     @staticmethod
     def _list_flowers(flower_info):
@@ -600,6 +612,7 @@ class Suitor(BaseSuitor):
                         flower_counts[flower] = flower_info[c][t][s]
         return flower_counts
 
+
     def zero_score_bouquet(self):
         """
         :return: a Bouquet for which your scoring function will return 0
@@ -615,9 +628,11 @@ class Suitor(BaseSuitor):
         )
         return Bouquet({worstFlower: 12})
 
+
     def get_min_vector_attribute(self, vector, enumType):
         zipped = list(zip(vector, enumType))
         return min(zipped)[1]
+
 
     def one_score_bouquet(self):
         """
@@ -625,6 +640,7 @@ class Suitor(BaseSuitor):
         """
         # the below is still true
         return list(self.best_arrangement)[0]
+
 
     def score_types(self, types: Dict[FlowerTypes, int]):
         """
@@ -636,12 +652,13 @@ class Suitor(BaseSuitor):
 
         for key, value in types.items():
             vector[key.value] = value
-        
+
         if sum(vector) == 0:
             return 0
 
         res = [self.compute_distance_heuristic(vector, x) for x in self.typev]
-        return max(res) * 1.0/3.0
+        return max(res) * 1.0 / 3.0
+
 
     def score_colors(self, colors: Dict[FlowerColors, int]):
         """
@@ -649,16 +666,16 @@ class Suitor(BaseSuitor):
         :return: A score representing preference of the flower colors in the bouquet
         """
         vector = [0] * len(FlowerColors)
-        
+
         for key, value in colors.items():
             vector[key.value] = value
-        
+
         if sum(vector) == 0:
             return 0
 
-
         res = [self.compute_distance_heuristic(vector, x) for x in self.colorv]
-        return max(res) * 1.0/3.0
+        return max(res) * 1.0 / 3.0
+
 
     def score_sizes(self, sizes: Dict[FlowerSizes, int]):
         """
@@ -669,12 +686,13 @@ class Suitor(BaseSuitor):
 
         for key, value in sizes.items():
             vector[key.value] = value
-            
+
         if sum(vector) == 0:
             return 0
 
         res = [self.compute_distance_heuristic(vector, x) for x in self.sizev]
-        return max(res) * 1.0/3.0
+        return max(res) * 1.0 / 3.0
+
 
     def receive_feedback(self, feedback):
         """

@@ -30,7 +30,6 @@ class Suitor(BaseSuitor):
         self.fs_turn_count = days - self.fc_turn_count - self.ft_turn_count
         all_ids = np.arange(num_suitors)
         self.recipient_ids = all_ids[all_ids != suitor_id]
-        self.to_be_tested = self._generate_exp_groups_single()
         self.train_feedback = np.zeros((len(self.recipient_ids), 6, 4, 3))  # feedback score from other recipients
         self.last_bouquet = None  # bouquet we gave out from the last turn
         self.control_group_assignments = self._assign_control_groups()
@@ -143,17 +142,6 @@ class Suitor(BaseSuitor):
 
         return assignments
 
-    def _generate_exp_groups_single(self):
-        to_be_tested = {}
-        # TODO can set up a ratio for different variables that ensure each variable is getting tested within #days
-        for recipient_id in self.recipient_ids:
-            to_be_tested[str(recipient_id)] = []
-            to_be_tested[str(recipient_id)].append([fc for fc in FlowerColors])
-            to_be_tested[str(recipient_id)].append([ft for ft in FlowerTypes])
-            to_be_tested[str(recipient_id)].append([fs for fs in FlowerSizes])
-
-        return to_be_tested
-
     def able_to_create_bouquet(self, flowers, flowercount):
         for flower, count in flowers.arrangement.items():
             if flower in flowercount:
@@ -176,7 +164,7 @@ class Suitor(BaseSuitor):
                 for r in categories:
                     for res in r:
                         score, rank = res[1], res[2] # rank
-                        if score > 0:
+                        if score > 0: # Ignore the suite if the best score we got with them was a zero
                             best_rank = min(best_rank, rank)
                 ranks.append((id, best_rank))
         
@@ -193,7 +181,7 @@ class Suitor(BaseSuitor):
             bouquet_size, color_rank, size_rank, type_rank = self.player_stats(player)
             idx += 1
             d = {}
-            if bouquet_size > num_flowers_remaining:
+            if bouquet_size > num_flowers_remaining: # If we do not have enough flowers to make their ideal bouquet just use the remaining amount of flowers
                 for key, value in flower_counts:
                     if value > 0:
                         d[key] = value
@@ -209,7 +197,7 @@ class Suitor(BaseSuitor):
             num_flowers_remaining -= bouquet_size
             results.append((self.suitor_id, player, Bouquet(d)))
         
-        # Now go through other players we have not seen yet
+        # Now go through other players we have not seen yet and give them an empty bouquet
         for i in range(idx, len(ranks)):
             results.append((self.suitor_id, ranks[i][0], Bouquet({})))
         
@@ -327,15 +315,12 @@ class Suitor(BaseSuitor):
 
             return self._testing_round(flower_counts)
 
-        # Testing round -- comment out this code to run testing round
-        if self.remaining_turns == 1:
-            return self._testing_round(flower_counts)
-
-        if self.remaining_turns == 0:
+        # final round
+        elif self.remaining_turns == 0:
             if len(self.feedback) <= 0:
                 return self._play_random_suitor(flower_counts)
 
-            # save feedback (only ranks) from previous round (testing round)
+            # get feedback (only ranks) from previous round (testing round)
             results = self.feedback[-1]
             testing_ranks = []
             for recipient_id in self.recipient_ids:
@@ -343,53 +328,10 @@ class Suitor(BaseSuitor):
 
             return self._testing_round(flower_counts, final_round_ranks=testing_ranks)
 
-            # pick our favorite recipients according to past ranks
-            # for recipient in self.recipient_ids:
-            #     recipient_ranks = np.asarray(self.experiments[recipient][exp_type])[:, 0]
-
-            # # TODO final round, give the bouquet with the highest score from the previous tryouts
-            # for i in self.recipient_ids:
-            #     if len(self.experiments[i]) != 0:
-            #         # for each recipient, if we have data for them, get the highest score and return the same combination to them
-            #         sortedList = []
-            #         for j in self.experiments[i].values():
-            #             sortedList.extend(j)
-            #         sortedList.sort(key=lambda x: x[1], reverse=True)
-            #         canMake = False
-            #         for flowers, score, _ in sortedList[:math.ceil(len(sortedList) / 2)]:
-            #             if self.able_to_create_bouquet(flowers, flower_counts):
-            #                 canMake = True
-            #                 bouquet_for_all.append([self.suitor_id, i, flowers])
-            #                 for flower, count in flowers.arrangement.items():
-            #                     flower_counts[flower] -= count
-            #                 break
-            #         go_random = not canMake
-            #     else:
-            #         go_random = True
-            #     if go_random:
-            #         # random bouquets if go_random is true
-            #         recipient_id = i
-            #         remaining_flowers = flower_counts.copy()
-            #         num_remaining = sum(remaining_flowers.values())
-            #         size = int(np.random.randint(0, min(MAX_BOUQUET_SIZE, num_remaining) + 1))
-            #         if size > 0:
-            #             chosen_flowers = np.random.choice(flatten_counter(remaining_flowers), size=(size,),
-            #                                               replace=False)
-            #             chosen_flower_counts = dict(Counter(chosen_flowers))
-            #             for k, v in chosen_flower_counts.items():
-            #                 remaining_flowers[k] -= v
-            #                 assert remaining_flowers[k] >= 0
-            #         else:
-            #             chosen_flower_counts = dict()
-            #         chosen_bouquet = Bouquet(chosen_flower_counts)
-            #         bouquet_for_all.append([self.suitor_id, recipient_id, chosen_bouquet])
-            #         flower_counts = remaining_flowers
-            #
-            # return bouquet_for_all
-
         else:  # training phase: conduct controlled experiments
-            if len(self.feedback) > 0:  # store past bouquets and scores
-                self.update_results()
+            if not self.previous_round_is_test:  # only update results if previous round was a regular searching round
+                if len(self.feedback) > 0:  # store past bouquets and scores
+                    self.update_results()
 
             # check if it is time to test
             if ((self.days - self.remaining_turns)+1) % self.test_interval == 0:
@@ -633,7 +575,6 @@ class Suitor(BaseSuitor):
                 bouquet_given, exp_type = self.last_bouquet[list(self.recipient_ids).index(i)][2], \
                                           self.last_bouquet[list(self.recipient_ids).index(i)][3]
 
-                # player[exp_type].append([bouquet_given, results[i][0], results[i][1]]) # TODO add rank to self.experiments
                 player[exp_type].append([bouquet_given, results[i][1], results[i][0]])
 
     @staticmethod

@@ -91,7 +91,10 @@ class Suitor(BaseSuitor):
             chosen_flower_counts = dict()
         chosen_bouquet = Bouquet(chosen_flower_counts)
         return self.suitor_id, recipient_id, chosen_bouquet
-
+    
+    def nCr(self,n,r):
+        f = math.factorial
+        return f(n) / f(r) / f(n-r)
 
     def _get_all_possible_bouquets_arr(self, flowers: Dict[Flower, int]):
         bouquets = [[0] * self.NUM_ALL_POSSIBLE_FLOWERS]
@@ -110,7 +113,9 @@ class Suitor(BaseSuitor):
             # num_flatten_flowers = max(num_flatten_flowers, min(num_remaining, 12))
             selected_flowers = random.sample(flatten_flowers, num_flatten_flowers)
             size_combos = list(itertools.combinations(selected_flowers, size))
-            size_bouquets = random.sample(size_combos, min(int(math.comb(num_flatten_flowers, size) * 0.2), 1000))
+            if size > num_flatten_flowers:
+                break
+            size_bouquets = random.sample(size_combos, min(int(self.nCr(num_flatten_flowers, size) * 0.2), 1000))
             size_bouquet_counts = [list({**self.all_possible_flowers, **Counter(size_bouquet)}.values()) for
                                    size_bouquet in size_bouquets]
             bouquets.extend(size_bouquet_counts)

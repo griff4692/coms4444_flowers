@@ -164,7 +164,7 @@ class Suitor(BaseSuitor):
                 for r in categories:
                     for res in r:
                         score, rank = res[1], res[2] # rank
-                        if score > 0:
+                        if score > 0: # Ignore the suite if the best score we got with them was a zero
                             best_rank = min(best_rank, rank)
                 ranks.append((id, best_rank))
         
@@ -181,7 +181,7 @@ class Suitor(BaseSuitor):
             bouquet_size, color_rank, size_rank, type_rank = self.player_stats(player)
             idx += 1
             d = {}
-            if bouquet_size > num_flowers_remaining:
+            if bouquet_size > num_flowers_remaining: # If we do not have enough flowers to make their ideal bouquet just use the remaining amount of flowers
                 for key, value in flower_counts:
                     if value > 0:
                         d[key] = value
@@ -197,7 +197,7 @@ class Suitor(BaseSuitor):
             num_flowers_remaining -= bouquet_size
             results.append((self.suitor_id, player, Bouquet(d)))
         
-        # Now go through other players we have not seen yet
+        # Now go through other players we have not seen yet and give them an empty bouquet
         for i in range(idx, len(ranks)):
             results.append((self.suitor_id, ranks[i][0], Bouquet({})))
         
